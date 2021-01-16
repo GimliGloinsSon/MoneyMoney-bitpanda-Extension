@@ -5,6 +5,64 @@ WebBanking{version     = 1.00,
 
 local connection = Connection()
 local apiKey
+local coinDict = {
+  -- Krypto
+  [1] = "Bitcoin",
+  [3] = "Litecoin",
+  [5] = "Etherum",
+  [6] = "Lisk",
+  [7] = "Dash",
+  [8] = "Ripple",
+  [9] = "Bitcoin Cash",
+  [11] = "Pantos",
+  [12] = "Komodo",
+  [13] = "IOTA",
+  [14] = "EOS",
+  [15] = "OmiseGo",
+  [16] = "Augur",
+  [17] = "0x",
+  [18] = "ZCash",
+  [19] = "NEM",
+  [20] = "Stellar",
+  [21] = "Tezos",
+  [22] = "Cardano",
+  [23] = "NEO",
+  [24] = "Etherum Classic",
+  [25] = "Chainlink",
+  [26] = "Waves",
+  [27] = "Tether",
+  [30] = "USD Coin",
+  [31] = "Tron",
+  [32] = "Cosmos",
+  [33] = "Bitpanda Ecosystem Token",
+  [34] = "Basic Attention Token",
+  [37] = "Chiliz",
+  [38] = "Tron",
+  [39] = "Doge",
+  [43] = "Qtum",
+  [44] = "Vechain",
+  [51] = "Polkadot",
+  [52] = "Yearn.Finance",
+  [53] = "Maker",
+  [54] = "Compound",
+  [55] = "Synthetix Network Token",
+  [56] = "Uniswap",
+  [57] = "Filecoin",
+  [58] = "Aave",
+  [59] = "Kyber Network",
+  [60] = "Band Protocol",
+  [61] = "REN",
+  [63] = "UMA",
+  -- Metals
+  [28] = "Gold",
+  [29] = "Silver",
+  [35] = "Palladium",
+  [36] = "Platinum",
+  -- Indizes
+  [40] = "Bitpanda Crypto Index [5",
+  [41] = "Bitpanda Crypto Index [10",
+  [42] = "Bitpanda Crypto Index [25",
+}
 
 function SupportsBank (protocol, bankCode)
     return protocol == ProtocolWebBanking and bankCode == "bitpanda"
@@ -63,15 +121,42 @@ function transactionForFiatTransaction(transaction, accountId, currency)
         return nil
     end
 
+    local name = "unknown"
+    local accountNumber = "unkown IBAN"
+    local bankCode = "unknown BIC"
+    local cryptId = 0
+    local asset = "unknown Asset"
+
+    if not (transaction.attributes.bank_account_details == nil) then
+      name = transaction.attributes.bank_account_details.attributes.holder
+      accountNumber = transaction.attributes.bank_account_details.attributes.iban
+      bankCode = transaction.attributes.bank_account_details.attributes.bic
+    end
+
+    if not (transaction.attributes.ccard_digits == nil) then
+      name = "Credit Card"
+      accountNumber = transaction.attributes.ccard_digits
+    end
+
+    if not (transaction.attributes.trade == nil) then
+      cryptId = tonumber(transaction.attributes.trade.attributes.cryptocoin_id)
+      asset = coinDict[cryptId]
+      if not (asset == nil) then
+        name = transaction.attributes.trade.attributes.type .. ": " .. coinDict[cryptId]
+      else
+        name = transaction.attributes.trade.attributes.type .. ": Unknown Asset"
+      end
+    end
+
     local isBooked = (transaction.attributes.status == "finished")
   
     t = {
       -- String name: Name des Auftraggebers/Zahlungsempfängers
-      name = transaction.attributes.bank_account_details.attributes.holder,
+      name = name,
       -- String accountNumber: Kontonummer oder IBAN des Auftraggebers/Zahlungsempfängers
-      accountNumber = transaction.attributes.bank_account_details.attributes.iban,
+      accountNumber = accountNumber,
       -- String bankCode: Bankzeitzahl oder BIC des Auftraggebers/Zahlungsempfängers
-      bankCode = transaction.attributes.bank_account_details.attributes.bic,
+      bankCode = bankCode,
       -- Number amount: Betrag
       amount = amountForFiatAmount(transaction.attributes.amount, transaction.attributes.in_or_out),
       -- String currency: Währung
