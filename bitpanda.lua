@@ -35,6 +35,7 @@ WebBanking{version     = 1.00,
 local connection = Connection()
 local apiKey
 local walletCurrency = "EUR"
+local pageSize = 1
 local coinDict = {
   -- Krypto
   [1] = "Bitcoin",
@@ -168,9 +169,8 @@ function RefreshAccount (account, since)
     local getTrans = {}
     local t = {} -- List of transactions to return
 
+    -- transactions for Depot
     if account.portfolio then
-      print("Portfolio")
-      print(account.subAccount)
       if account.subAccount == "cryptocoin" then 
         getTrans = queryPrivate("asset-wallets").data.attributes.cryptocoin.attributes.wallets
       elseif account.subAccount == "index.index" then
@@ -187,18 +187,28 @@ function RefreshAccount (account, since)
         end
       end
 
-      return {securities = t}      
+      return {securities = t}
+    -- transactions for FIATS      
     else
-      getTrans = queryPrivate("fiatwallets/transactions")
-      for index, fiatTransaction in pairs(getTrans.data) do
-        local transaction = transactionForFiatTransaction(fiatTransaction, account.accountNumber, account.currency)
-        if transaction == nil then
-          print("Skipped transaction: " .. fiatTransaction.id)
-        else
-          t[#t + 1] = transaction
-          if transaction.booked then
-              sum = sum + transaction.amount
+      local nextPage = 1
+      while nextPage ~= nil do
+        getTrans = queryPrivate("fiatwallets/transactions", {page = nextPage, page_size = pageSize})
+        for index, fiatTransaction in pairs(getTrans.data) do
+          local transaction = transactionForFiatTransaction(fiatTransaction, account.accountNumber, account.currency)
+          if transaction == nil then
+            print("Skipped transaction: " .. fiatTransaction.id)
+          else
+            t[#t + 1] = transaction
+            if transaction.booked then
+                sum = sum + transaction.amount
+            end
           end
+        end
+
+        if getTrans.links.next ~= nil then
+          nextPage = nextPage + 1
+        else
+          nextPage = nil
         end
       end
   
@@ -338,20 +348,22 @@ function EndSession ()
 end
 
 function queryPurchPrice(accountId)
-  local headers = {}
-  headers["X-API-KEY"] = apiKey
-  local path = "trades?type=buy"
   local amount = 0
   local buyPrice = 0
+  local nextPage = 1
 
-  content = connection:request("GET", url .. path, nil, nil, headers)
-
-  buys = JSON(content):dictionary()
-
-  for index, trades in pairs(buys.data) do
-    if trades.attributes.cryptocoin_id == accountId then
-      amount = amount + tonumber(trades.attributes.amount_cryptocoin)
-      buyPrice = buyPrice + (tonumber(trades.attributes.amount_fiat) * tonumber(trades.attributes.fiat_to_eur_rate))
+  while nextPage ~= nil do
+    buys = queryPrivate("trades", {type = buy, page = nextPage, page_size = pageSize})
+    for index, trades in pairs(buys.data) do
+      if trades.attributes.cryptocoin_id == accountId then
+        amount = amount + tonumber(trades.attributes.amount_cryptocoin)
+        buyPrice = buyPrice + (tonumber(trades.attributes.amount_fiat) * tonumber(trades.attributes.fiat_to_eur_rate))
+      end
+    end
+    if buys.links.next ~= nil then
+      nextPage = nextPage + 1
+    else  
+      nextPage = nil
     end
   end
 
