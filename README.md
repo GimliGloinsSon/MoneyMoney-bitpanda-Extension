@@ -32,7 +32,7 @@ Usage
 * At "Kontenauswahl" you can select your:
     * Money Wallets (EUR, USD, CHF, GBP, TRY)
     * Cryptocoin wallets
-    * Indizes wallets
-    * Commoditie (metal) wallets)
+    * Indexs wallets
+    * Commodity (metal) wallets)
 
 ![MoneyMoney screenshot with Bitpanda account selection](screens/Kontoauswahl.png)
