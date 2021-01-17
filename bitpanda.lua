@@ -124,52 +124,40 @@ function ListAccounts (knownAccounts)
     end
 
     -- Crypto Wallets
-    local getDepots = queryPrivate("asset-wallets").data.attributes.cryptocoin.attributes.wallets
-    for key, account in pairs(getDepots) do
-      table.insert(accounts, 
+    table.insert(accounts, 
       {
-        name = account.attributes.name,
+        name = "Krypto",
         owner = user,
-        accountNumber = account.attributes.cryptocoin_id,
-        bankCode = account.attributes.cryptocoin_symbol,
+        accountNumber = "Krypto Accounts",
         currency = walletCurrency,
         portfolio = true,
         type = AccountTypePortfolio,
         subAccount = "cryptocoin"
       })
-    end
 
     -- Indizes Wallets
-    local getIndizes = queryPrivate("asset-wallets").data.attributes.index.index.attributes.wallets
-    for key, account in pairs(getIndizes) do 
-      table.insert(accounts, 
+    table.insert(accounts, 
       {
-        name = account.attributes.name,
+        name = "Indizes",
         owner = user,
-        accountNumber = account.attributes.cryptocoin_id,
-        bankCode = account.attributes.cryptocoin_symbol,
+        accountNumber = "Index Accounts",
         currency = walletCurrency,
         portfolio = true,
         type = AccountTypePortfolio,
         subAccount = "index.index"
       })
-    end
-
+  
     -- Commodity Wallets
-    local getComm = queryPrivate("asset-wallets").data.attributes.commodity.metal.attributes.wallets
-    for key, account in pairs(getComm) do
-      table.insert(accounts, 
+    table.insert(accounts, 
       {
-        name = account.attributes.name,
+        name = "Commodities",
         owner = user,
-        accountNumber = account.attributes.cryptocoin_id,
-        bankCode = account.attributes.cryptocoin_symbol,
+        accountNumber = "Metal Accounts",
         currency = walletCurrency,
         portfolio = true,
         type = AccountTypePortfolio,
         subAccount = "commodity.metal"
       })
-    end
 
     return accounts
 end
@@ -193,8 +181,8 @@ function RefreshAccount (account, since)
         return
       end
       for index, cryptTransaction in pairs(getTrans) do
-        if cryptTransaction.attributes.cryptocoin_id == account.accountNumber then
-          local transaction = transactionForCryptTransaction(cryptTransaction, account.accountNumber, account.currency)
+        if tonumber(cryptTransaction.attributes.balance) > 0 then
+          local transaction = transactionForCryptTransaction(cryptTransaction, account.currency)
           t[#t + 1] = transaction
         end
       end
@@ -222,13 +210,13 @@ function RefreshAccount (account, since)
 
 end
 
-function transactionForCryptTransaction(transaction, accountId, currency)
+function transactionForCryptTransaction(transaction, currency)
     local symbol = transaction.attributes.cryptocoin_symbol
     local currPrice = tonumber(queryPrice(symbol, currency))
     local currQuant = tonumber(transaction.attributes.balance) 
     local currAmount = currPrice * currQuant 
 
-    local calcPurchPrice = queryPurchPrice(accountId)
+    local calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id)
 
     t = {
       --String name: Bezeichnung des Wertpapiers
