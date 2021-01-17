@@ -7,6 +7,12 @@ Requirements
 * Generate API-Key under you profile
 * [MoneyMoney.app](https://moneymoney-app.com) (>= 2.4.2) 
 
+ToDo's
+------
+
+* more Testing
+* better error handling
+
 Installation
 ------------
 
