@@ -272,6 +272,7 @@ function transactionForFiatTransaction(transaction, accountId, currency)
     local bankCode = "unknown BIC"
     local cryptId = 0
     local asset = "unknown Asset"
+    local purposeStr = ""  
 
     if not (transaction.attributes.bank_account_details == nil) then
       name = transaction.attributes.bank_account_details.attributes.holder
@@ -294,6 +295,11 @@ function transactionForFiatTransaction(transaction, accountId, currency)
       end
     end
 
+    if tonumber(transaction.attributes.fee) > 0 then
+      fullAmount = tonumber(transaction.attributes.amount) + tonumber(transaction.attributes.fee)
+      purposeStr = fullAmount .. " " .. currency .. " - " .. transaction.attributes.fee .. " " .. currency .. " Gebuehren"
+    end
+
     local isBooked = (transaction.attributes.status == "finished")
   
     t = {
@@ -312,6 +318,7 @@ function transactionForFiatTransaction(transaction, accountId, currency)
       -- Number valueDate: Wertstellungsdatum; Die Angabe erfolgt in Form eines POSIX-Zeitstempels.
       valueDate = transaction.attributes.time.unix,
       -- String purpose: Verwendungszweck; Mehrere Zeilen können durch Zeilenumbrüche ("\n") getrennt werden.
+      purpose = purposeStr,
       -- Number transactionCode: Geschäftsvorfallcode
       -- Number textKeyExtension: Textschlüsselergänzung
       -- String purposeCode: SEPA-Verwendungsschlüssel
