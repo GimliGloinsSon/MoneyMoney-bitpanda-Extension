@@ -5,6 +5,7 @@ WebBanking{version     = 1.00,
 
 local connection = Connection()
 local apiKey
+local walletCurrency = "EUR"
 local coinDict = {
   -- Krypto
   [1] = "Bitcoin",
@@ -70,50 +71,166 @@ end
 
 function InitializeSession (protocol, bankCode, username, username2, password, username3)
     -- Login.
+    user = username
     apiKey = password
 end
 
 function ListAccounts (knownAccounts)
     -- Return array of accounts.
-    local getAccounts = queryPrivate("fiatwallets").data
     local accounts = {}
+
+    -- FIAT Wallets
+    local getAccounts = queryPrivate("fiatwallets").data
     for key, account in pairs(getAccounts) do
-        accounts[#accounts + 1] = {
-            name = account.attributes.name,
-            owner = "Me",
-            accountNumber = account.id,
-            bankCode = account.type,
-            currency = account.attributes.fiat_symbol,
-            portfolio = false,
-            type = AccountTypeSavings
-        }
+      table.insert(accounts, 
+      {
+        name = account.attributes.name,
+        owner = user,
+        accountNumber = account.id,
+        bankCode = account.type,
+        currency = account.attributes.fiat_symbol,
+        portfolio = false,
+        type = AccountTypeSavings
+      })
     end
+
+    -- Crypto Wallets
+    local getDepots = queryPrivate("asset-wallets").data.attributes.cryptocoin.attributes.wallets
+    for key, account in pairs(getDepots) do
+      table.insert(accounts, 
+      {
+        name = account.attributes.name,
+        owner = user,
+        accountNumber = account.attributes.cryptocoin_id,
+        bankCode = account.attributes.cryptocoin_symbol,
+        currency = walletCurrency,
+        portfolio = true,
+        type = AccountTypePortfolio,
+        subAccount = "cryptocoin"
+      })
+    end
+
+    -- Indizes Wallets
+    local getIndizes = queryPrivate("asset-wallets").data.attributes.index.index.attributes.wallets
+    for key, account in pairs(getIndizes) do 
+      table.insert(accounts, 
+      {
+        name = account.attributes.name,
+        owner = user,
+        accountNumber = account.attributes.cryptocoin_id,
+        bankCode = account.attributes.cryptocoin_symbol,
+        currency = walletCurrency,
+        portfolio = true,
+        type = AccountTypePortfolio,
+        subAccount = "index.index"
+      })
+    end
+
+    -- Commodity Wallets
+    local getComm = queryPrivate("asset-wallets").data.attributes.commodity.metal.attributes.wallets
+    for key, account in pairs(getComm) do
+      table.insert(accounts, 
+      {
+        name = account.attributes.name,
+        owner = user,
+        accountNumber = account.attributes.cryptocoin_id,
+        bankCode = account.attributes.cryptocoin_symbol,
+        currency = walletCurrency,
+        portfolio = true,
+        type = AccountTypePortfolio,
+        subAccount = "commodity.metal"
+      })
+    end
+
     return accounts
 end
 
 function RefreshAccount (account, since)
     MM.printStatus("Refreshing account " .. account.name)
-    local getTrans = queryPrivate("fiatwallets/transactions")
     local sum = 0
-
+    local getTrans = {}
     local t = {} -- List of transactions to return
-    for index, fiatTransaction in pairs(getTrans.data) do
-      local transaction = transactionForFiatTransaction(fiatTransaction, account.accountNumber, account.currency)
-      if transaction == nil then
-        print("Skipped transaction: " .. fiatTransaction.id)
+
+    if account.portfolio then
+      print("Portfolio")
+      print(account.subAccount)
+      if account.subAccount == "cryptocoin" then 
+        getTrans = queryPrivate("asset-wallets").data.attributes.cryptocoin.attributes.wallets
+      elseif account.subAccount == "index.index" then
+        getTrans = queryPrivate("asset-wallets").data.attributes.index.index.attributes.wallets
+      elseif account.subAccount == "commodity.metal" then
+        getTrans = queryPrivate("asset-wallets").data.attributes.commodity.metal.attributes.wallets
       else
-        t[#t + 1] = transaction
-        if transaction.booked then
-            sum = sum + transaction.amount
+        return
+      end
+      for index, cryptTransaction in pairs(getTrans) do
+        if cryptTransaction.attributes.cryptocoin_id == account.accountNumber then
+          local transaction = transactionForCryptTransaction(cryptTransaction, account.accountNumber, account.currency)
+          t[#t + 1] = transaction
         end
       end
+
+      return {securities = t}      
+    else
+      getTrans = queryPrivate("fiatwallets/transactions")
+      for index, fiatTransaction in pairs(getTrans.data) do
+        local transaction = transactionForFiatTransaction(fiatTransaction, account.accountNumber, account.currency)
+        if transaction == nil then
+          print("Skipped transaction: " .. fiatTransaction.id)
+        else
+          t[#t + 1] = transaction
+          if transaction.booked then
+              sum = sum + transaction.amount
+          end
+        end
+      end
+  
+      return {
+          balance = sum,
+          transactions = t
+        }
     end
 
-    return {
-        balance = sum,
-        transactions = t
-      }
 end
+
+function transactionForCryptTransaction(transaction, accountId, currency)
+    local symbol = transaction.attributes.cryptocoin_symbol
+    local currPrice = tonumber(queryPrice(symbol, currency))
+    local currQuant = tonumber(transaction.attributes.balance) 
+    local currAmount = currPrice * currQuant 
+
+    local calcPurchPrice = queryPurchPrice(accountId)
+
+    t = {
+      --String name: Bezeichnung des Wertpapiers
+      name = transaction.attributes.name,
+      --String isin: ISIN
+      --String securityNumber: WKN
+      securityNumber = symbol,
+      --String market: Börse
+      market = "bitpanda",
+      --String currency: Währung bei Nominalbetrag oder nil bei Stückzahl
+      currency = nil,
+      --Number quantity: Nominalbetrag oder Stückzahl
+      quantity = currQuant,
+      --Number amount: Wert der Depotposition in Kontowährung
+      amount = currAmount,
+      --Number originalCurrencyAmount: Wert der Depotposition in Originalwährung
+      --String currencyOfOriginalAmount: Originalwährung
+      --Number exchangeRate: Wechselkurs zum Kaufzeitpunkt
+      --Number tradeTimestamp: Notierungszeitpunkt; Die Angabe erfolgt in Form eines POSIX-Zeitstempels.
+      tradeTimestamp = os.time(),
+      --Number price: Aktueller Preis oder Kurs
+      price = currPrice,
+      --String currencyOfPrice: Von der Kontowährung abweichende Währung des Preises
+      --Number purchasePrice: Kaufpreis oder Kaufkurs
+      purchasePrice = calcPurchPrice
+      --String currencyOfPurchasePrice: Von der Kontowährung abweichende Währung des Kaufpreises
+    }
+
+    return t
+end
+
 
 function transactionForFiatTransaction(transaction, accountId, currency)
     
@@ -196,6 +313,32 @@ function EndSession ()
     -- Logout.
 end
 
+function queryPurchPrice(accountId)
+  local headers = {}
+  headers["X-API-KEY"] = apiKey
+  local path = "trades?type=buy"
+  local amount = 0
+  local buyPrice = 0
+
+  content = connection:request("GET", url .. path, nil, nil, headers)
+
+  buys = JSON(content):dictionary()
+
+  for index, trades in pairs(buys.data) do
+    if trades.attributes.cryptocoin_id == accountId then
+      amount = amount + tonumber(trades.attributes.amount_cryptocoin)
+      buyPrice = buyPrice + (tonumber(trades.attributes.amount_fiat) * tonumber(trades.attributes.fiat_to_eur_rate))
+    end
+  end
+
+  if amount > 0 then
+    return buyPrice / amount
+  else
+    return 0
+  end
+
+end
+
 function queryPrivate(method, params)
     local path = method
   
@@ -212,6 +355,13 @@ function queryPrivate(method, params)
     content = connection:request("GET", url .. path, nil, nil, headers)
   
     return JSON(content):dictionary()
+end
+
+function queryPrice(symbol, currency)
+  prices = connection:request("GET", "https://api.bitpanda.com/v1/ticker", nil, nil, nil)
+
+  priceTable = JSON(prices):dictionary()
+  return priceTable[symbol][currency]
 end
 
 function httpBuildQuery(params)
