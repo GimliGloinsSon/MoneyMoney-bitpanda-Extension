@@ -1,5 +1,7 @@
 # Inofficial MoneyMoney Web Banking Extension for Bitpanda
 
+![MoneyMoney screenshot with Bitpanda accounts](screens/MoneyMoneyApp.png)
+
 Requirements
 ----------------
 
