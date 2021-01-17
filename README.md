@@ -12,6 +12,7 @@ ToDo's
 
 * more Testing
 * better error handling
+* For Feedback/Questions create a [ticket](https://github.com/GimliGloinsSon/MoneyMoney-bitpanda-Extension/issues/new)  
 
 Installation
 ------------
