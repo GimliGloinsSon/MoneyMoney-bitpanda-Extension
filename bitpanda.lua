@@ -35,7 +35,7 @@ WebBanking{version     = 1.00,
 local connection = Connection()
 local apiKey
 local walletCurrency = "EUR"
-local pageSize = 1
+local pageSize = 25
 local coinDict = {
   -- Krypto
   [1] = "Bitcoin",
@@ -167,6 +167,7 @@ function RefreshAccount (account, since)
     MM.printStatus("Refreshing account " .. account.name)
     local sum = 0
     local getTrans = {}
+    local getBal = {}
     local t = {} -- List of transactions to return
 
     -- transactions for Depot
@@ -188,7 +189,8 @@ function RefreshAccount (account, since)
       end
 
       return {securities = t}
-    -- transactions for FIATS      
+    
+      -- transactions for FIATS      
     else
       local nextPage = 1
       while nextPage ~= nil do
@@ -199,9 +201,6 @@ function RefreshAccount (account, since)
             print("Skipped transaction: " .. fiatTransaction.id)
           else
             t[#t + 1] = transaction
-            if transaction.booked then
-                sum = sum + transaction.amount
-            end
           end
         end
 
@@ -209,6 +208,13 @@ function RefreshAccount (account, since)
           nextPage = nextPage + 1
         else
           nextPage = nil
+        end
+      end
+      -- Get Balance
+      getBal = queryPrivate("fiatwallets")
+      for index, fiatBalance in pairs(getBal.data) do
+        if fiatBalance.id == account.accountNumber then
+          sum = fiatBalance.attributes.balance
         end
       end
   
@@ -226,12 +232,20 @@ function transactionForCryptTransaction(transaction, currency)
     local currQuant = tonumber(transaction.attributes.balance) 
     local currAmount = currPrice * currQuant 
 
-    local calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id)
+    local calcPurchPrice = 0
     local calcCurrency = nil
+    
+    -- Calculation for Indizes
     if transaction.attributes.is_index then
       calcCurrency = currency
-      currPrice = 100
-      currAmount = currPrice / 100 * currQuant
+      -- currPrice = 100
+      calcPurchPrice = queryPurchPrice(transaction.id, "index")
+      currPrice = currQuant / calcPurchPrice * 100
+      currAmount = currQuant
+      currQuant = calcPurchPrice
+      calcPurchPrice = 100
+    else 
+      calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt")
     end
 
     t = {
@@ -243,7 +257,7 @@ function transactionForCryptTransaction(transaction, currency)
       --String market: Börse
       market = "bitpanda",
       --String currency: Währung bei Nominalbetrag oder nil bei Stückzahl
-        currency = calcCurrency,
+      currency = calcCurrency,
       --Number quantity: Nominalbetrag oder Stückzahl
       quantity = currQuant,
       --Number amount: Wert der Depotposition in Kontowährung
@@ -305,6 +319,11 @@ function transactionForFiatTransaction(transaction, accountId, currency)
     end
 
     local isBooked = (transaction.attributes.status == "finished")
+
+    if transaction.attributes.is_savings then
+      isBooked = false
+      purposeStr = purposeStr .. "Buchung reserviert fuer Sparplan. Betrag nicht verfuegbar"
+    end
   
     t = {
       -- String name: Name des Auftraggebers/Zahlungsempfängers
@@ -353,7 +372,7 @@ function EndSession ()
     -- Logout.
 end
 
-function queryPurchPrice(accountId)
+function queryPurchPrice(accountId, type)
   local amount = 0
   local buyPrice = 0
   local nextPage = 1
@@ -361,9 +380,12 @@ function queryPurchPrice(accountId)
   while nextPage ~= nil do
     buys = queryPrivate("trades", {type = buy, page = nextPage, page_size = pageSize})
     for index, trades in pairs(buys.data) do
-      if trades.attributes.cryptocoin_id == accountId then
+      if trades.attributes.cryptocoin_id == accountId and type == "crypt" then
         amount = amount + tonumber(trades.attributes.amount_cryptocoin)
         buyPrice = buyPrice + (tonumber(trades.attributes.amount_fiat) * tonumber(trades.attributes.fiat_to_eur_rate))
+      elseif trades.attributes.wallet_id == accountId and type == "index" then
+        buyPrice = buyPrice + tonumber(trades.attributes.amount_fiat)
+        amount = 1
       end
     end
     if buys.links.next ~= nil then
@@ -374,6 +396,7 @@ function queryPurchPrice(accountId)
   end
 
   if amount > 0 then
+    print("Kaufpreis: " .. (buyPrice / amount))
     return buyPrice / amount
   else
     return 0
