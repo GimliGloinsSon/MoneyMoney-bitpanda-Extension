@@ -227,6 +227,12 @@ function transactionForCryptTransaction(transaction, currency)
     local currAmount = currPrice * currQuant 
 
     local calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id)
+    local calcCurrency = nil
+    if transaction.attributes.is_index then
+      calcCurrency = currency
+      currPrice = 100
+      currAmount = currPrice / 100 * currQuant
+    end
 
     t = {
       --String name: Bezeichnung des Wertpapiers
@@ -237,7 +243,7 @@ function transactionForCryptTransaction(transaction, currency)
       --String market: Börse
       market = "bitpanda",
       --String currency: Währung bei Nominalbetrag oder nil bei Stückzahl
-      currency = nil,
+        currency = calcCurrency,
       --Number quantity: Nominalbetrag oder Stückzahl
       quantity = currQuant,
       --Number amount: Wert der Depotposition in Kontowährung
