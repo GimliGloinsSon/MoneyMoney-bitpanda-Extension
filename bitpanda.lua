@@ -197,9 +197,7 @@ function RefreshAccount (account, since)
         getTrans = queryPrivate("fiatwallets/transactions", {page = nextPage, page_size = pageSize})
         for index, fiatTransaction in pairs(getTrans.data) do
           local transaction = transactionForFiatTransaction(fiatTransaction, account.accountNumber, account.currency)
-          if transaction == nil then
-            print("Skipped transaction: " .. fiatTransaction.id)
-          else
+          if transaction ~= nil then
             t[#t + 1] = transaction
           end
         end
@@ -399,7 +397,6 @@ function queryPurchPrice(accountId, type)
 
     -- Wenn Cryptcoin_id == 33 --> prüfen, ob Coin für Fee verwendet wurde
     if accountId == "33" then
-      print("Calc für BEST")
       for index, trades in pairs(buys.data) do
         if trades.attributes.best_fee_collection ~= nil then
           amount = amount - tonumber(trades.attributes.best_fee_collection.attributes.wallet_transaction.attributes.fee)
@@ -416,7 +413,6 @@ function queryPurchPrice(accountId, type)
   end
 
   if amount > 0 then
-    print("Kaufpreis: " .. (buyPrice / amount))
     return buyPrice / amount
   else
     return 0
