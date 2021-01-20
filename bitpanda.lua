@@ -90,9 +90,9 @@ local coinDict = {
   [35] = "Palladium",
   [36] = "Platinum",
   -- Indizes
-  [40] = "Bitpanda Crypto Index [5",
-  [41] = "Bitpanda Crypto Index [10",
-  [42] = "Bitpanda Crypto Index [25",
+  [40] = "Bitpanda Crypto Index 5",
+  [41] = "Bitpanda Crypto Index 10",
+  [42] = "Bitpanda Crypto Index 25",
 }
 
 function SupportsBank (protocol, bankCode)
@@ -238,7 +238,6 @@ function transactionForCryptTransaction(transaction, currency)
     -- Calculation for Indizes
     if transaction.attributes.is_index then
       calcCurrency = currency
-      -- currPrice = 100
       calcPurchPrice = queryPurchPrice(transaction.id, "index")
       currPrice = currQuant / calcPurchPrice * 100
       currAmount = currQuant
@@ -378,16 +377,37 @@ function queryPurchPrice(accountId, type)
   local nextPage = 1
 
   while nextPage ~= nil do
-    buys = queryPrivate("trades", {type = buy, page = nextPage, page_size = pageSize})
+    buys = queryPrivate("trades", {page = nextPage, page_size = pageSize})
     for index, trades in pairs(buys.data) do
       if trades.attributes.cryptocoin_id == accountId and type == "crypt" then
-        amount = amount + tonumber(trades.attributes.amount_cryptocoin)
-        buyPrice = buyPrice + (tonumber(trades.attributes.amount_fiat) * tonumber(trades.attributes.fiat_to_eur_rate))
+        if trades.attributes.type == "buy" then
+          amount = amount + tonumber(trades.attributes.amount_cryptocoin)
+          buyPrice = buyPrice + (tonumber(trades.attributes.amount_fiat) * tonumber(trades.attributes.fiat_to_eur_rate))
+        else
+          amount = amount - tonumber(trades.attributes.amount_cryptocoin)
+          buyPrice = buyPrice - (tonumber(trades.attributes.amount_fiat) * tonumber(trades.attributes.fiat_to_eur_rate))
+        end
       elseif trades.attributes.wallet_id == accountId and type == "index" then
-        buyPrice = buyPrice + tonumber(trades.attributes.amount_fiat)
+        if trades.attributes.type == "buy" then
+          buyPrice = buyPrice + tonumber(trades.attributes.amount_fiat)
+        else
+          buyPrice = buyPrice - tonumber(trades.attributes.amount_fiat)
+        end
         amount = 1
       end
     end
+
+    -- Wenn Cryptcoin_id == 33 --> prüfen, ob Coin für Fee verwendet wurde
+    if accountId == "33" then
+      print("Calc für BEST")
+      for index, trades in pairs(buys.data) do
+        if trades.attributes.best_fee_collection ~= nil then
+          amount = amount - tonumber(trades.attributes.best_fee_collection.attributes.wallet_transaction.attributes.fee)
+          buyPrice = buyPrice - tonumber(trades.attributes.best_fee_collection.attributes.best_used_price_eur)
+        end
+      end
+    end
+
     if buys.links.next ~= nil then
       nextPage = nextPage + 1
     else  
