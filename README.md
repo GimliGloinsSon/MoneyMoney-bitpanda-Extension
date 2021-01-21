@@ -35,8 +35,7 @@ Installation
 Usage
 -----
 
-* For Username: (anything)
-* For Password: API-Key from Bitpanda
+* For Username: API-Key from Bitpanda
 
 * At "Kontenauswahl" you can select your:
     * Money Wallets (EUR, USD, CHF, GBP, TRY)
