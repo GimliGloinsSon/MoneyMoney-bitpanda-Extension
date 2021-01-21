@@ -1,8 +1,7 @@
 -- Inofficial Bitpanda Extension (www.bitpanda.com) for MoneyMoney 
 -- Fetches available data from Bitpanda API
 -- 
--- Username: (anything)
--- Password: API-Key
+-- Username: API-Key
 --
 -- MIT License
 --
@@ -30,7 +29,7 @@
 WebBanking{version     = 1.00,
            url         = "https://api.bitpanda.com/v1/",
            services    = {"bitpanda"},
-           description = "Loads FIATs from bitpanda"}
+           description = "Loads FIATs, Krypto, Indizes and Commodities from bitpanda"}
 
 local connection = Connection()
 local apiKey
