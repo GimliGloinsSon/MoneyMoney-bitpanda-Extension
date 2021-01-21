@@ -6,7 +6,7 @@ Requirements
 ----------------
 
 * [Bitpanda Account](https://www.bitpanda.com)
-* Generate API-Key under you profile
+* Generate API-Key under your profile
 * [MoneyMoney.app](https://moneymoney-app.com) (>= 2.4.2) 
 
 ToDo's
@@ -40,7 +40,7 @@ Usage
 * At "Kontenauswahl" you can select your:
     * Money Wallets (EUR, USD, CHF, GBP, TRY)
     * Cryptocoin wallets
-    * Indexs wallets
+    * Index wallets
     * Commodity (metal) wallets
 
 ![MoneyMoney screenshot with Bitpanda account selection](screens/Kontoauswahl.png)
