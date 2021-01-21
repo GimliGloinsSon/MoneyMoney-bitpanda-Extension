@@ -101,8 +101,7 @@ end
 
 function InitializeSession (protocol, bankCode, username, username2, password, username3)
     -- Login.
-    user = username
-    apiKey = password
+    apiKey = username
 end
 
 function ListAccounts (knownAccounts)
