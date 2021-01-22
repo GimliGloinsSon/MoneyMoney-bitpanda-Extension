@@ -8,8 +8,8 @@ Requirements
 ----------------
 
 * [Bitpanda Account](https://www.bitpanda.com)
-* Generate API-Key under you profile
-* [MoneyMoney.app](https://moneymoney-app.com) (>= 2.4.2) 
+* Generate API-Key under your profile
+* [MoneyMoney.app](https://moneymoney-app.com) (>= 2.4.3) or beta 
 
 ToDo's
 ------
@@ -21,6 +21,16 @@ ToDo's
 
 Installation
 ------------
+
+### Signed copy from Extensions Page (preferred, but you need MoneyMoney >= 2.4.3)
+
+1. Download a signed version of this from https://moneymoney-app.com/extensions/
+  * Open MoneyMoney, tap *Hilfe* > *Zeige Datenbank*
+  * put the downloaded `bitpanda.lua` file in the shown Extension folder
+2. Add an account in MoneyMoney
+  * create a new account via *Konto* > *Konto hinzufügen*.
+  * Use the API-Key you created at Bitpanda profile for the API-Key
+
 
 ### Usigned copy from the GitHub-Repository
 
@@ -38,13 +48,12 @@ Installation
 Usage
 -----
 
-* For Username: (anything)
-* For Password: API-Key from Bitpanda
+* For Username: API-Key from Bitpanda
 
 * At "Kontenauswahl" you can select your:
     * Money Wallets (EUR, USD, CHF, GBP, TRY)
     * Cryptocoin wallets
-    * Indexs wallets
-    * Commodity (metal) wallets)
+    * Index wallets
+    * Commodity (metal) wallets
 
 ![MoneyMoney screenshot with Bitpanda account selection](screens/Kontoauswahl.png)

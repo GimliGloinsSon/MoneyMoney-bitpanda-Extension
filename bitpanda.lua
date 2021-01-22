@@ -1,8 +1,7 @@
 -- Inofficial Bitpanda Extension (www.bitpanda.com) for MoneyMoney 
 -- Fetches available data from Bitpanda API
 -- 
--- Username: (anything)
--- Password: API-Key
+-- Username: API-Key
 --
 -- MIT License
 --
@@ -30,12 +29,12 @@
 WebBanking{version     = 1.00,
            url         = "https://api.bitpanda.com/v1/",
            services    = {"bitpanda"},
-           description = "Loads FIATs from bitpanda"}
+           description = "Loads FIATs, Krypto, Indizes and Commodities from bitpanda"}
 
 local connection = Connection()
 local apiKey
 local walletCurrency = "EUR"
-local pageSize = 1
+local pageSize = 25
 local coinDict = {
   -- Krypto
   [1] = "Bitcoin",
@@ -90,9 +89,9 @@ local coinDict = {
   [35] = "Palladium",
   [36] = "Platinum",
   -- Indizes
-  [40] = "Bitpanda Crypto Index [5",
-  [41] = "Bitpanda Crypto Index [10",
-  [42] = "Bitpanda Crypto Index [25",
+  [40] = "Bitpanda Crypto Index 5",
+  [41] = "Bitpanda Crypto Index 10",
+  [42] = "Bitpanda Crypto Index 25",
 }
 
 function SupportsBank (protocol, bankCode)
@@ -101,8 +100,7 @@ end
 
 function InitializeSession (protocol, bankCode, username, username2, password, username3)
     -- Login.
-    user = username
-    apiKey = password
+    apiKey = username
 end
 
 function ListAccounts (knownAccounts)
@@ -167,6 +165,7 @@ function RefreshAccount (account, since)
     MM.printStatus("Refreshing account " .. account.name)
     local sum = 0
     local getTrans = {}
+    local getBal = {}
     local t = {} -- List of transactions to return
 
     -- transactions for Depot
@@ -188,20 +187,16 @@ function RefreshAccount (account, since)
       end
 
       return {securities = t}
-    -- transactions for FIATS      
+    
+      -- transactions for FIATS      
     else
       local nextPage = 1
       while nextPage ~= nil do
         getTrans = queryPrivate("fiatwallets/transactions", {page = nextPage, page_size = pageSize})
         for index, fiatTransaction in pairs(getTrans.data) do
           local transaction = transactionForFiatTransaction(fiatTransaction, account.accountNumber, account.currency)
-          if transaction == nil then
-            print("Skipped transaction: " .. fiatTransaction.id)
-          else
+          if transaction ~= nil then
             t[#t + 1] = transaction
-            if transaction.booked then
-                sum = sum + transaction.amount
-            end
           end
         end
 
@@ -209,6 +204,13 @@ function RefreshAccount (account, since)
           nextPage = nextPage + 1
         else
           nextPage = nil
+        end
+      end
+      -- Get Balance
+      getBal = queryPrivate("fiatwallets")
+      for index, fiatBalance in pairs(getBal.data) do
+        if fiatBalance.id == account.accountNumber then
+          sum = fiatBalance.attributes.balance
         end
       end
   
@@ -226,7 +228,20 @@ function transactionForCryptTransaction(transaction, currency)
     local currQuant = tonumber(transaction.attributes.balance) 
     local currAmount = currPrice * currQuant 
 
-    local calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id)
+    local calcPurchPrice = 0
+    local calcCurrency = nil
+    
+    -- Calculation for Indizes
+    if transaction.attributes.is_index then
+      calcCurrency = currency
+      calcPurchPrice = queryPurchPrice(transaction.id, "index")
+      currPrice = currQuant / calcPurchPrice * 100
+      currAmount = currQuant
+      currQuant = calcPurchPrice
+      calcPurchPrice = 100
+    else 
+      calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt")
+    end
 
     t = {
       --String name: Bezeichnung des Wertpapiers
@@ -237,7 +252,7 @@ function transactionForCryptTransaction(transaction, currency)
       --String market: Börse
       market = "bitpanda",
       --String currency: Währung bei Nominalbetrag oder nil bei Stückzahl
-      currency = nil,
+      currency = calcCurrency,
       --Number quantity: Nominalbetrag oder Stückzahl
       quantity = currQuant,
       --Number amount: Wert der Depotposition in Kontowährung
@@ -299,6 +314,11 @@ function transactionForFiatTransaction(transaction, accountId, currency)
     end
 
     local isBooked = (transaction.attributes.status == "finished")
+
+    if transaction.attributes.is_savings then
+      isBooked = false
+      purposeStr = purposeStr .. "Buchung reserviert fuer Sparplan. Betrag nicht verfuegbar"
+    end
   
     t = {
       -- String name: Name des Auftraggebers/Zahlungsempfängers
@@ -347,19 +367,42 @@ function EndSession ()
     -- Logout.
 end
 
-function queryPurchPrice(accountId)
+function queryPurchPrice(accountId, type)
   local amount = 0
   local buyPrice = 0
   local nextPage = 1
 
   while nextPage ~= nil do
-    buys = queryPrivate("trades", {type = buy, page = nextPage, page_size = pageSize})
+    buys = queryPrivate("trades", {page = nextPage, page_size = pageSize})
     for index, trades in pairs(buys.data) do
-      if trades.attributes.cryptocoin_id == accountId then
-        amount = amount + tonumber(trades.attributes.amount_cryptocoin)
-        buyPrice = buyPrice + (tonumber(trades.attributes.amount_fiat) * tonumber(trades.attributes.fiat_to_eur_rate))
+      if trades.attributes.cryptocoin_id == accountId and type == "crypt" then
+        if trades.attributes.type == "buy" then
+          amount = amount + tonumber(trades.attributes.amount_cryptocoin)
+          buyPrice = buyPrice + (tonumber(trades.attributes.amount_fiat) * tonumber(trades.attributes.fiat_to_eur_rate))
+        else
+          amount = amount - tonumber(trades.attributes.amount_cryptocoin)
+          buyPrice = buyPrice - (tonumber(trades.attributes.amount_fiat) * tonumber(trades.attributes.fiat_to_eur_rate))
+        end
+      elseif trades.attributes.wallet_id == accountId and type == "index" then
+        if trades.attributes.type == "buy" then
+          buyPrice = buyPrice + tonumber(trades.attributes.amount_fiat)
+        else
+          buyPrice = buyPrice - tonumber(trades.attributes.amount_fiat)
+        end
+        amount = 1
       end
     end
+
+    -- Wenn Cryptcoin_id == 33 --> prüfen, ob Coin für Fee verwendet wurde
+    if accountId == "33" then
+      for index, trades in pairs(buys.data) do
+        if trades.attributes.best_fee_collection ~= nil then
+          amount = amount - tonumber(trades.attributes.best_fee_collection.attributes.wallet_transaction.attributes.fee)
+          buyPrice = buyPrice - tonumber(trades.attributes.best_fee_collection.attributes.best_used_price_eur)
+        end
+      end
+    end
+
     if buys.links.next ~= nil then
       nextPage = nextPage + 1
     else  
