@@ -7,7 +7,7 @@ Requirements
 
 * [Bitpanda Account](https://www.bitpanda.com)
 * Generate API-Key under your profile
-* [MoneyMoney.app](https://moneymoney-app.com) (>= 2.4.2) 
+* [MoneyMoney.app](https://moneymoney-app.com) (>= 2.4.3) or beta 
 
 ToDo's
 ------
