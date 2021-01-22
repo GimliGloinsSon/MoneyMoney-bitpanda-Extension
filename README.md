@@ -19,6 +19,16 @@ ToDo's
 Installation
 ------------
 
+### Signed copy from Extensions Page (preferred, but you need MoneyMoney >= 2.4.3)
+
+1. Download a signed version of this from https://moneymoney-app.com/extensions/
+  * Open MoneyMoney, tap *Hilfe* > *Zeige Datenbank*
+  * put the downloaded `bitpanda.lua` file in the shown Extension folder
+2. Add an account in MoneyMoney
+  * create a new account via *Konto* > *Konto hinzufügen*.
+  * Use the API-Key you created at Bitpanda profile for the API-Key
+
+
 ### Usigned copy from the GitHub-Repository
 
 * Copy the `bitpanda.lua` file into MoneyMoney's Extension folder
