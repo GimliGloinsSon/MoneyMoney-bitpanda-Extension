@@ -413,7 +413,7 @@ function getIndexBuys(currency, currIndex, currCryptId, accountId, type)
                 name = bookingText .. ": " .. currIndexName,
                 accountNumber = "unkown IBAN",
                 bankCode = "unknown BIC",
-                amount = betrag * -1,
+                amount = betrag * factor,
                 currency = currency,
                 bookingDate = dateToTimestamp(string.sub(currDate, 1, 10)),
                 bookingText = bookingText,
@@ -429,9 +429,9 @@ function getIndexBuys(currency, currIndex, currCryptId, accountId, type)
     end
     if betrag > 0 then
       trans = {
-          name = "Buy: " .. currIndexName,
+          name = bookingText .. ": " .. currIndexName,
           accountNumber = accountNumber,
-          amount = betrag * -1,
+          amount = betrag * factor,
           currency = "EUR",
           bookingDate = dateToTimestamp(string.sub(currDate, 1, 10)),
           purpose = purposeStr,
