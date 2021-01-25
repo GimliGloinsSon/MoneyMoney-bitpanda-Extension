@@ -329,14 +329,13 @@ function transactionForFiatTransaction(transaction, accountId, currency)
 
     if tonumber(transaction.attributes.fee) > 0 then
       fullAmount = tonumber(transaction.attributes.amount) + tonumber(transaction.attributes.fee)
-      purposeStr = fullAmount .. " " .. currency .. " - " .. transaction.attributes.fee .. " " .. currency .. " Gebuehren"
+      purposeStr = fullAmount .. " " .. currency .. " - " .. transaction.attributes.fee .. " " .. currency .. " fee"
     end
 
     local isBooked = (transaction.attributes.status == "finished")
 
     if transaction.attributes.is_savings then
-      isBooked = false
-      purposeStr = purposeStr .. "Buchung reserviert fuer Sparplan. Betrag nicht verfuegbar"
+      purposeStr = purposeStr .. "Booking reserved for savings plan. Amount not available!"
     end
   
     t = {
@@ -430,12 +429,13 @@ function getIndexBuys(currency, currIndex, currCryptId, accountId, type)
     if betrag > 0 then
       trans = {
           name = bookingText .. ": " .. currIndexName,
-          accountNumber = accountNumber,
+          accountNumber = "unkown IBAN",
+          bankCode = "unknown BIC",
           amount = betrag * factor,
-          currency = "EUR",
+          currency = currency,
           bookingDate = dateToTimestamp(string.sub(currDate, 1, 10)),
           purpose = purposeStr,
-          bookingText = "Buy",
+          bookingText = bookingText,
           booked = true
       }
       t[#t + 1] = trans
