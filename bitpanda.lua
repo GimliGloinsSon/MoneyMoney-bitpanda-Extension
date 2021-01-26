@@ -194,8 +194,8 @@ function RefreshAccount (account, since)
       while nextPage ~= nil do
         getTrans = queryPrivate("fiatwallets/transactions", {page = nextPage, page_size = pageSize})
         for index, fiatTransaction in pairs(getTrans.data) do
-          local transaction = transactionForFiatTransaction(fiatTransaction, account.accountNumber, account.currency)
-          if transaction ~= nil then
+          if accountId == fiatTransaction.attributes.fiat_wallet_id then
+            local transaction = transactionForFiatTransaction(fiatTransaction, account.accountNumber, account.currency)
             t[#t + 1] = transaction
           end
         end
@@ -294,11 +294,6 @@ function transactionForCryptTransaction(transaction, currency)
 end
 
 function transactionForFiatTransaction(transaction, accountId, currency)
-    
-    if not (accountId == transaction.attributes.fiat_wallet_id) then
-        return nil
-    end
-
     local name = "unknown"
     local accountNumber = "unkown IBAN"
     local bankCode = "unknown BIC"
