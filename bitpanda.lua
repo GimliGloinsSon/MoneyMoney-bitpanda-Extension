@@ -185,16 +185,14 @@ function RefreshAccount (account, since)
           t[#t + 1] = transaction
         end
       end
-
       return {securities = t}
-    
       -- transactions for FIATS      
     else
       local nextPage = 1
       while nextPage ~= nil do
         getTrans = queryPrivate("fiatwallets/transactions", {page = nextPage, page_size = pageSize})
         for index, fiatTransaction in pairs(getTrans.data) do
-          if accountId == fiatTransaction.attributes.fiat_wallet_id then
+          if account.accountNumber == fiatTransaction.attributes.fiat_wallet_id then
             local transaction = transactionForFiatTransaction(fiatTransaction, account.accountNumber, account.currency)
             t[#t + 1] = transaction
           end
@@ -414,33 +412,33 @@ function getIndexBuys(currency, currIndex, currCryptId, accountId, type)
                 booked = true
             }
             currDate = string.sub(trade.attributes.time.date_iso8601, 1, 13)
-            betrag = 0
+            betrag = tonumber(trade.attributes.amount_fiat)
             t[#t + 1] = trans                
         else
             betrag = betrag + tonumber(trade.attributes.amount_fiat)
         end
       end
     end
-    if betrag > 0 then
-      trans = {
-          name = bookingText .. ": " .. currIndexName,
-          accountNumber = "unkown IBAN",
-          bankCode = "unknown BIC",
-          amount = betrag * factor,
-          currency = currency,
-          bookingDate = dateToTimestamp(string.sub(currDate, 1, 10)),
-          purpose = purposeStr,
-          bookingText = bookingText,
-          booked = true
-      }
-      t[#t + 1] = trans
-    end
-
+    
     if trades.links.next ~= nil then
       nextPage = nextPage + 1
     else  
       nextPage = nil
     end
+  end
+  if betrag > 0 then
+    trans = {
+        name = bookingText .. ": " .. currIndexName,
+        accountNumber = "unkown IBAN",
+        bankCode = "unknown BIC",
+        amount = betrag * factor,
+        currency = currency,
+        bookingDate = dateToTimestamp(string.sub(currDate, 1, 10)),
+        purpose = purposeStr,
+        bookingText = bookingText,
+        booked = true
+    }
+    t[#t + 1] = trans
   end
   return t
 end
