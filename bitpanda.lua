@@ -338,7 +338,7 @@ function transactionForFiatTransaction(transaction, accountId, currency)
       name = name,
       -- String accountNumber: Kontonummer oder IBAN des Auftraggebers/Zahlungsempfängers
       accountNumber = accountNumber,
-      -- String bankCode: Bankzeitzahl oder BIC des Auftraggebers/Zahlungsempfängers
+      -- String bankCode: Bankleitzahl oder BIC des Auftraggebers/Zahlungsempfängers
       bankCode = bankCode,
       -- Number amount: Betrag
       amount = amountForFiatAmount(transaction.attributes.amount, transaction.attributes.in_or_out),
