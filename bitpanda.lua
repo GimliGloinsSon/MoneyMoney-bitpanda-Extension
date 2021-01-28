@@ -93,6 +93,8 @@ local coinDict = {
   [41] = "Bitpanda Crypto Index 10",
   [42] = "Bitpanda Crypto Index 25",
 }
+local priceTable = {}
+
 
 function SupportsBank (protocol, bankCode)
     return protocol == ProtocolWebBanking and bankCode == "bitpanda"
@@ -101,6 +103,8 @@ end
 function InitializeSession (protocol, bankCode, username, username2, password, username3)
     -- Login.
     apiKey = username
+    prices = connection:request("GET", "https://api.bitpanda.com/v1/ticker", nil, nil, nil)
+    priceTable = JSON(prices):dictionary()
 end
 
 function ListAccounts (knownAccounts)
@@ -517,9 +521,6 @@ function queryPrivate(method, params)
 end
 
 function queryPrice(symbol, currency)
-  prices = connection:request("GET", "https://api.bitpanda.com/v1/ticker", nil, nil, nil)
-
-  priceTable = JSON(prices):dictionary()
   return priceTable[symbol][currency]
 end
 
