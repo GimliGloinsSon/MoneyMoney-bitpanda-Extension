@@ -185,17 +185,15 @@ function RefreshAccount (account, since)
           t[#t + 1] = transaction
         end
       end
-
       return {securities = t}
-    
       -- transactions for FIATS      
     else
       local nextPage = 1
       while nextPage ~= nil do
         getTrans = queryPrivate("fiatwallets/transactions", {page = nextPage, page_size = pageSize})
         for index, fiatTransaction in pairs(getTrans.data) do
-          local transaction = transactionForFiatTransaction(fiatTransaction, account.accountNumber, account.currency)
-          if transaction ~= nil then
+          if account.accountNumber == fiatTransaction.attributes.fiat_wallet_id then
+            local transaction = transactionForFiatTransaction(fiatTransaction, account.accountNumber, account.currency)
             t[#t + 1] = transaction
           end
         end
@@ -206,6 +204,26 @@ function RefreshAccount (account, since)
           nextPage = nil
         end
       end
+
+      --- Fiat transaction from buy/sell Indizes
+      getIndizes = queryPrivate("asset-wallets").data.attributes.index.index.attributes.wallets
+      for key, index in pairs(getIndizes) do
+        --Buys
+        listOfTransactions = getIndexBuys(account.currency, index.id, index.attributes.cryptocoin_id, account.accountNumber, "buy")
+        if (#listOfTransactions) > 0 then
+          for i = 1, #listOfTransactions, 1 do
+            t[#t + 1] = listOfTransactions[i]
+          end
+        end
+        --Sells
+        listOfTransactions = getIndexBuys(account.currency, index.id, index.attributes.cryptocoin_id, account.accountNumber, "sell")
+        if (#listOfTransactions) > 0 then
+          for i = 1, #listOfTransactions, 1 do
+            t[#t + 1] = listOfTransactions[i]
+          end
+        end
+      end
+
       -- Get Balance
       getBal = queryPrivate("fiatwallets")
       for index, fiatBalance in pairs(getBal.data) do
@@ -273,13 +291,7 @@ function transactionForCryptTransaction(transaction, currency)
     return t
 end
 
-
 function transactionForFiatTransaction(transaction, accountId, currency)
-    
-    if not (accountId == transaction.attributes.fiat_wallet_id) then
-        return nil
-    end
-
     local name = "unknown"
     local accountNumber = "unkown IBAN"
     local bankCode = "unknown BIC"
@@ -310,14 +322,13 @@ function transactionForFiatTransaction(transaction, accountId, currency)
 
     if tonumber(transaction.attributes.fee) > 0 then
       fullAmount = tonumber(transaction.attributes.amount) + tonumber(transaction.attributes.fee)
-      purposeStr = fullAmount .. " " .. currency .. " - " .. transaction.attributes.fee .. " " .. currency .. " Gebuehren"
+      purposeStr = fullAmount .. " " .. currency .. " - " .. transaction.attributes.fee .. " " .. currency .. " fee"
     end
 
     local isBooked = (transaction.attributes.status == "finished")
 
     if transaction.attributes.is_savings then
-      isBooked = false
-      purposeStr = purposeStr .. "Buchung reserviert fuer Sparplan. Betrag nicht verfuegbar"
+      purposeStr = purposeStr .. "Booking reserved for savings plan. Amount not available!"
     end
   
     t = {
@@ -325,7 +336,7 @@ function transactionForFiatTransaction(transaction, accountId, currency)
       name = name,
       -- String accountNumber: Kontonummer oder IBAN des Auftraggebers/Zahlungsempfängers
       accountNumber = accountNumber,
-      -- String bankCode: Bankzeitzahl oder BIC des Auftraggebers/Zahlungsempfängers
+      -- String bankCode: Bankleitzahl oder BIC des Auftraggebers/Zahlungsempfängers
       bankCode = bankCode,
       -- Number amount: Betrag
       amount = amountForFiatAmount(transaction.attributes.amount, transaction.attributes.in_or_out),
@@ -338,9 +349,9 @@ function transactionForFiatTransaction(transaction, accountId, currency)
       -- String purpose: Verwendungszweck; Mehrere Zeilen können durch Zeilenumbrüche ("\n") getrennt werden.
       purpose = purposeStr,
       -- Number transactionCode: Geschäftsvorfallcode
-      -- Number textKeyExtension: Textschlüsselergänzung
+      -- Number textKeyExtension: Textschlüsselergänzung
       -- String purposeCode: SEPA-Verwendungsschlüssel
-      -- String bookingKey: SWIFT-Buchungsschlüssel
+      -- String bookingKey: SWIFT-Buchungsschlüssel
       -- String bookingText: Umsatzart
       bookingText = transaction.attributes.type,
       -- String primanotaNumber: Primanota-Nummer
@@ -355,13 +366,82 @@ function transactionForFiatTransaction(transaction, accountId, currency)
     return t
   end
 
-function amountForFiatAmount(amount, in_or_out)
+  function amountForFiatAmount(amount, in_or_out)
     if in_or_out == "incoming" then
         return amount
     else
         return amount * -1
     end
 end        
+
+function getIndexBuys(currency, currIndex, currCryptId, accountId, type)
+  local nextPage = 1
+  currIndexName = coinDict[tonumber(currCryptId)]
+  local firstTrans = true
+  local currDate = nil
+  local transNum = 1
+  betrag = 0
+  trans = {}
+  t = {}
+  bookingText = "Buy"
+  factor = -1
+
+  if type == "sell" then
+    bookingText = "Sell"
+    factor = 1
+  end
+
+  while nextPage ~= nil do
+    trades = queryPrivate("trades", {type = type, page = nextPage, page_size = pageSize})
+
+    for key, trade in pairs(trades.data) do
+      if trade.attributes.wallet_id == currIndex and trade.attributes.fiat_wallet_id == accountId then
+        if (currDate ~= string.sub(trade.attributes.time.date_iso8601, 1, 13) and firstTrans) then
+            currDate = string.sub(trade.attributes.time.date_iso8601, 1, 13)
+            firstTrans = false
+            betrag = betrag + tonumber(trade.attributes.amount_fiat)
+        elseif currDate ~= string.sub(trade.attributes.time.date_iso8601, 1, 13) and not firstTrans then
+            trans = {
+                name = bookingText .. ": " .. currIndexName,
+                accountNumber = "unkown IBAN",
+                bankCode = "unknown BIC",
+                amount = betrag * factor,
+                currency = currency,
+                bookingDate = dateToTimestamp(string.sub(currDate, 1, 10)),
+                bookingText = bookingText,
+                booked = true
+            }
+            currDate = string.sub(trade.attributes.time.date_iso8601, 1, 13)
+            betrag = tonumber(trade.attributes.amount_fiat)
+            t[#t + 1] = trans                
+        else
+            betrag = betrag + tonumber(trade.attributes.amount_fiat)
+        end
+      end
+    end
+    
+    if trades.links.next ~= nil then
+      nextPage = nextPage + 1
+    else  
+      nextPage = nil
+    end
+  end
+  if betrag > 0 then
+    trans = {
+        name = bookingText .. ": " .. currIndexName,
+        accountNumber = "unkown IBAN",
+        bankCode = "unknown BIC",
+        amount = betrag * factor,
+        currency = currency,
+        bookingDate = dateToTimestamp(string.sub(currDate, 1, 10)),
+        purpose = purposeStr,
+        bookingText = bookingText,
+        booked = true
+    }
+    t[#t + 1] = trans
+  end
+  return t
+end
 
 function EndSession ()
     -- Logout.
@@ -450,4 +530,15 @@ function httpBuildQuery(params)
     end
     str = str.sub(str, 1, -2)
     return str
+end
+
+function dateToTimestamp(date)
+  local year, month, day=date:match("(%d+)-(%d+)-(%d+)")
+
+  timeSta = os.time({
+      year = tonumber(year),
+      month = tonumber(month),
+      day = tonumber(day)
+  })
+  return timeSta
 end
