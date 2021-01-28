@@ -26,7 +26,7 @@
 -- SOFTWARE.
 
 
-WebBanking{version     = 1.00,
+WebBanking{version     = 1.01,
            url         = "https://api.bitpanda.com/v1/",
            services    = {"bitpanda"},
            description = "Loads FIATs, Krypto, Indizes and Commodities from bitpanda"}
@@ -110,7 +110,8 @@ end
 function InitializeSession (protocol, bankCode, username, username2, password, username3)
     -- Login.
     apiKey = username
-    local nextPage = 1
+
+    -- Wir holen uns erstmal alle Daten
     prices = connection:request("GET", "https://api.bitpanda.com/v1/ticker", nil, nil, nil)
     priceTable = JSON(prices):dictionary()
 
@@ -187,7 +188,6 @@ function RefreshAccount (account, since)
     MM.printStatus("Refreshing account " .. account.name)
     local sum = 0
     local getTrans = {}
-    local getBal = {}
     local t = {} -- List of transactions to return
 
     -- transactions for Depot
@@ -385,11 +385,9 @@ function transactionForFiatTransaction(transaction, accountId, currency)
 end        
 
 function getIndexBuys(currency, currIndex, currCryptId, accountId, type)
-  local nextPage = 1
   currIndexName = coinDict[tonumber(currCryptId)]
   local firstTrans = true
   local currDate = nil
-  local transNum = 1
   betrag = 0
   trans = {}
   t = {}
