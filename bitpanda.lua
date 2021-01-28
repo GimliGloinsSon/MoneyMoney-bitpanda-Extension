@@ -349,9 +349,9 @@ function transactionForFiatTransaction(transaction, accountId, currency)
       -- String purpose: Verwendungszweck; Mehrere Zeilen können durch Zeilenumbrüche ("\n") getrennt werden.
       purpose = purposeStr,
       -- Number transactionCode: Geschäftsvorfallcode
-      -- Number textKeyExtension: Textschlüsselergänzung
+      -- Number textKeyExtension: Textschlüsselergänzung
       -- String purposeCode: SEPA-Verwendungsschlüssel
-      -- String bookingKey: SWIFT-Buchungsschlüssel
+      -- String bookingKey: SWIFT-Buchungsschlüssel
       -- String bookingText: Umsatzart
       bookingText = transaction.attributes.type,
       -- String primanotaNumber: Primanota-Nummer
