@@ -56,4 +56,11 @@ Usage
     * Index wallets
     * Commodity (metal) wallets
 
+Information to Indizes
+----------------------
+
+Informatio for Indizes. If you see in your FIAT-wallet a buy and a sell of the same day of the same index,
+that means that there was a rebalancing of the index.
+
+
 ![MoneyMoney screenshot with Bitpanda account selection](screens/Kontoauswahl.png)
