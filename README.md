@@ -59,7 +59,7 @@ Usage
 Information to Indizes
 ----------------------
 
-Information for Indizes. If you see in your FIAT-wallet a buy and a sell of the same day of the same index,
+If you see in your FIAT-wallet a buy and a sell of the same day of the same index,
 that means that there was a rebalancing of the index.
 
 
