@@ -31,7 +31,6 @@ Installation
   * create a new account via *Konto* > *Konto hinzufügen*.
   * Use the API-Key you created at Bitpanda profile for the API-Key
 
-
 ### Usigned copy from the GitHub-Repository
 
 * Copy the `bitpanda.lua` file into MoneyMoney's Extension folder
@@ -45,6 +44,12 @@ Installation
 	* Go to "Extensions"-tab
 	* Allow unsigned extensions
 
+Information to Indizes
+----------------------
+
+If you see in your FIAT-wallet a buy and a sell of the same day of the same index,
+that means that there was a rebalancing of the index.
+
 Usage
 -----
 
@@ -56,11 +61,6 @@ Usage
     * Index wallets
     * Commodity (metal) wallets
 
-Information to Indizes
-----------------------
-
-If you see in your FIAT-wallet a buy and a sell of the same day of the same index,
-that means that there was a rebalancing of the index.
 
 
 ![MoneyMoney screenshot with Bitpanda account selection](screens/Kontoauswahl.png)
