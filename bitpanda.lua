@@ -26,7 +26,7 @@
 -- SOFTWARE.
 
 
-WebBanking{version     = 1.00,
+WebBanking{version     = 1.01,
            url         = "https://api.bitpanda.com/v1/",
            services    = {"bitpanda"},
            description = "Loads FIATs, Krypto, Indizes and Commodities from bitpanda"}
@@ -34,7 +34,7 @@ WebBanking{version     = 1.00,
 local connection = Connection()
 local apiKey
 local walletCurrency = "EUR"
-local pageSize = 25
+local pageSize = 50
 local coinDict = {
   -- Krypto
   [1] = "Bitcoin",
@@ -93,6 +93,15 @@ local coinDict = {
   [41] = "Bitpanda Crypto Index 10",
   [42] = "Bitpanda Crypto Index 25",
 }
+local priceTable = {}
+local typeList = {"buy", "sell"}
+local allBuys = {}
+local allSells = {}
+local allTrades = {}
+local allFiatTrans = {}
+local allAssetWallets = {}
+local allFiatWallets = {}
+
 
 function SupportsBank (protocol, bankCode)
     return protocol == ProtocolWebBanking and bankCode == "bitpanda"
@@ -101,15 +110,29 @@ end
 function InitializeSession (protocol, bankCode, username, username2, password, username3)
     -- Login.
     apiKey = username
-end
+
+    -- Wir holen uns erstmal alle Daten
+    prices = connection:request("GET", "https://api.bitpanda.com/v1/ticker", nil, nil, nil)
+    priceTable = JSON(prices):dictionary()
+
+    for i, type in pairs(typeList) do
+      trades = queryTrades(type)
+      if type == "buy" then allBuys = trades
+      else allSells = trades
+      end
+    end
+    allTrades = unionTables(allBuys, allSells)
+    allFiatTrans = queryFiatTrans()
+    allAssetWallets = queryPrivate("asset-wallets")
+    allFiatWallets = queryPrivate("fiatwallets")
+  end
 
 function ListAccounts (knownAccounts)
     -- Return array of accounts.
     local accounts = {}
 
     -- FIAT Wallets
-    local getAccounts = queryPrivate("fiatwallets").data
-    for key, account in pairs(getAccounts) do
+    for key, account in pairs(allFiatWallets.data) do
       table.insert(accounts, 
       {
         name = account.attributes.name,
@@ -165,17 +188,16 @@ function RefreshAccount (account, since)
     MM.printStatus("Refreshing account " .. account.name)
     local sum = 0
     local getTrans = {}
-    local getBal = {}
     local t = {} -- List of transactions to return
 
     -- transactions for Depot
     if account.portfolio then
       if account.subAccount == "cryptocoin" then 
-        getTrans = queryPrivate("asset-wallets").data.attributes.cryptocoin.attributes.wallets
+        getTrans = allAssetWallets.data.attributes.cryptocoin.attributes.wallets
       elseif account.subAccount == "index.index" then
-        getTrans = queryPrivate("asset-wallets").data.attributes.index.index.attributes.wallets
+        getTrans = allAssetWallets.data.attributes.index.index.attributes.wallets
       elseif account.subAccount == "commodity.metal" then
-        getTrans = queryPrivate("asset-wallets").data.attributes.commodity.metal.attributes.wallets
+        getTrans = allAssetWallets.data.attributes.commodity.metal.attributes.wallets
       else
         return
       end
@@ -188,25 +210,14 @@ function RefreshAccount (account, since)
       return {securities = t}
       -- transactions for FIATS      
     else
-      local nextPage = 1
-      while nextPage ~= nil do
-        getTrans = queryPrivate("fiatwallets/transactions", {page = nextPage, page_size = pageSize})
-        for index, fiatTransaction in pairs(getTrans.data) do
-          if account.accountNumber == fiatTransaction.attributes.fiat_wallet_id then
-            local transaction = transactionForFiatTransaction(fiatTransaction, account.accountNumber, account.currency)
-            t[#t + 1] = transaction
-          end
-        end
-
-        if getTrans.links.next ~= nil then
-          nextPage = nextPage + 1
-        else
-          nextPage = nil
+      for index, fiatTransaction in pairs(allFiatTrans) do
+        if account.accountNumber == fiatTransaction.attributes.fiat_wallet_id then
+          local transaction = transactionForFiatTransaction(fiatTransaction, account.accountNumber, account.currency)
+          t[#t + 1] = transaction
         end
       end
-
       --- Fiat transaction from buy/sell Indizes
-      getIndizes = queryPrivate("asset-wallets").data.attributes.index.index.attributes.wallets
+      getIndizes = allAssetWallets.data.attributes.index.index.attributes.wallets
       for key, index in pairs(getIndizes) do
         --Buys
         listOfTransactions = getIndexBuys(account.currency, index.id, index.attributes.cryptocoin_id, account.accountNumber, "buy")
@@ -225,8 +236,7 @@ function RefreshAccount (account, since)
       end
 
       -- Get Balance
-      getBal = queryPrivate("fiatwallets")
-      for index, fiatBalance in pairs(getBal.data) do
+      for index, fiatBalance in pairs(allFiatWallets.data) do
         if fiatBalance.id == account.accountNumber then
           sum = fiatBalance.attributes.balance
         end
@@ -375,57 +385,48 @@ function transactionForFiatTransaction(transaction, accountId, currency)
 end        
 
 function getIndexBuys(currency, currIndex, currCryptId, accountId, type)
-  local nextPage = 1
   currIndexName = coinDict[tonumber(currCryptId)]
   local firstTrans = true
   local currDate = nil
-  local transNum = 1
   betrag = 0
   trans = {}
   t = {}
   bookingText = "Buy"
   factor = -1
+  trades = allBuys
 
   if type == "sell" then
     bookingText = "Sell"
     factor = 1
+    trades = allSells
   end
 
-  while nextPage ~= nil do
-    trades = queryPrivate("trades", {type = type, page = nextPage, page_size = pageSize})
-
-    for key, trade in pairs(trades.data) do
-      if trade.attributes.wallet_id == currIndex and trade.attributes.fiat_wallet_id == accountId then
-        if (currDate ~= string.sub(trade.attributes.time.date_iso8601, 1, 13) and firstTrans) then
-            currDate = string.sub(trade.attributes.time.date_iso8601, 1, 13)
-            firstTrans = false
-            betrag = betrag + tonumber(trade.attributes.amount_fiat)
-        elseif currDate ~= string.sub(trade.attributes.time.date_iso8601, 1, 13) and not firstTrans then
-            trans = {
-                name = bookingText .. ": " .. currIndexName,
-                accountNumber = "unkown IBAN",
-                bankCode = "unknown BIC",
-                amount = betrag * factor,
-                currency = currency,
-                bookingDate = dateToTimestamp(string.sub(currDate, 1, 10)),
-                bookingText = bookingText,
-                booked = true
-            }
-            currDate = string.sub(trade.attributes.time.date_iso8601, 1, 13)
-            betrag = tonumber(trade.attributes.amount_fiat)
-            t[#t + 1] = trans                
-        else
-            betrag = betrag + tonumber(trade.attributes.amount_fiat)
-        end
+  for key, trade in pairs(trades) do
+    if trade.attributes.wallet_id == currIndex and trade.attributes.fiat_wallet_id == accountId then
+      if (currDate ~= string.sub(trade.attributes.time.date_iso8601, 1, 13) and firstTrans) then
+          currDate = string.sub(trade.attributes.time.date_iso8601, 1, 13)
+          firstTrans = false
+          betrag = betrag + tonumber(trade.attributes.amount_fiat)
+      elseif currDate ~= string.sub(trade.attributes.time.date_iso8601, 1, 13) and not firstTrans then
+          trans = {
+              name = bookingText .. ": " .. currIndexName,
+              accountNumber = "unkown IBAN",
+              bankCode = "unknown BIC",
+              amount = betrag * factor,
+              currency = currency,
+              bookingDate = dateToTimestamp(string.sub(currDate, 1, 10)),
+              bookingText = bookingText,
+              booked = true
+          }
+          currDate = string.sub(trade.attributes.time.date_iso8601, 1, 13)
+          betrag = tonumber(trade.attributes.amount_fiat)
+          t[#t + 1] = trans                
+      else
+          betrag = betrag + tonumber(trade.attributes.amount_fiat)
       end
     end
-    
-    if trades.links.next ~= nil then
-      nextPage = nextPage + 1
-    else  
-      nextPage = nil
-    end
   end
+    
   if betrag > 0 then
     trans = {
         name = bookingText .. ": " .. currIndexName,
@@ -450,43 +451,33 @@ end
 function queryPurchPrice(accountId, type)
   local amount = 0
   local buyPrice = 0
-  local nextPage = 1
 
-  while nextPage ~= nil do
-    buys = queryPrivate("trades", {page = nextPage, page_size = pageSize})
-    for index, trades in pairs(buys.data) do
-      if trades.attributes.cryptocoin_id == accountId and type == "crypt" then
-        if trades.attributes.type == "buy" then
-          amount = amount + tonumber(trades.attributes.amount_cryptocoin)
-          buyPrice = buyPrice + (tonumber(trades.attributes.amount_fiat) * tonumber(trades.attributes.fiat_to_eur_rate))
-        else
-          amount = amount - tonumber(trades.attributes.amount_cryptocoin)
-          buyPrice = buyPrice - (tonumber(trades.attributes.amount_fiat) * tonumber(trades.attributes.fiat_to_eur_rate))
-        end
-      elseif trades.attributes.wallet_id == accountId and type == "index" then
-        if trades.attributes.type == "buy" then
-          buyPrice = buyPrice + tonumber(trades.attributes.amount_fiat)
-        else
-          buyPrice = buyPrice - tonumber(trades.attributes.amount_fiat)
-        end
-        amount = 1
+  for index, trades in pairs(allTrades) do
+    if trades.attributes.cryptocoin_id == accountId and type == "crypt" then
+      if trades.attributes.type == "buy" then
+        amount = amount + tonumber(trades.attributes.amount_cryptocoin)
+        buyPrice = buyPrice + (tonumber(trades.attributes.amount_fiat) * tonumber(trades.attributes.fiat_to_eur_rate))
+      else
+        amount = amount - tonumber(trades.attributes.amount_cryptocoin)
+        buyPrice = buyPrice - (tonumber(trades.attributes.amount_fiat) * tonumber(trades.attributes.fiat_to_eur_rate))
       end
-    end
-
-    -- Wenn Cryptcoin_id == 33 --> prüfen, ob Coin für Fee verwendet wurde
-    if accountId == "33" then
-      for index, trades in pairs(buys.data) do
-        if trades.attributes.best_fee_collection ~= nil then
-          amount = amount - tonumber(trades.attributes.best_fee_collection.attributes.wallet_transaction.attributes.fee)
-          buyPrice = buyPrice - tonumber(trades.attributes.best_fee_collection.attributes.best_used_price_eur)
-        end
+    elseif trades.attributes.wallet_id == accountId and type == "index" then
+      if trades.attributes.type == "buy" then
+        buyPrice = buyPrice + tonumber(trades.attributes.amount_fiat)
+      else
+        buyPrice = buyPrice - tonumber(trades.attributes.amount_fiat)
       end
+      amount = 1
     end
+  end
 
-    if buys.links.next ~= nil then
-      nextPage = nextPage + 1
-    else  
-      nextPage = nil
+  -- Wenn Cryptcoin_id == 33 --> prüfen, ob Coin für Fee verwendet wurde
+  if accountId == "33" then
+    for index, trades in pairs(allTrades) do
+      if trades.attributes.best_fee_collection ~= nil then
+        amount = amount - tonumber(trades.attributes.best_fee_collection.attributes.wallet_transaction.attributes.fee)
+        buyPrice = buyPrice - tonumber(trades.attributes.best_fee_collection.attributes.best_used_price_eur)
+      end
     end
   end
 
@@ -495,7 +486,6 @@ function queryPurchPrice(accountId, type)
   else
     return 0
   end
-
 end
 
 function queryPrivate(method, params)
@@ -516,10 +506,44 @@ function queryPrivate(method, params)
     return JSON(content):dictionary()
 end
 
-function queryPrice(symbol, currency)
-  prices = connection:request("GET", "https://api.bitpanda.com/v1/ticker", nil, nil, nil)
+function queryTrades(type)
+  local nextPage = 1
+  local tradeTable = {}
+  while nextPage ~= nil do
+    tradeData = queryPrivate("trades", {type = type, page = nextPage, page_size = pageSize})
+    trades = tradeData.data
+    if #trades > 0 then
+      tradeTable = unionTables(tradeTable, trades)
+    end
+    if tradeData.links.next ~= nil then
+      nextPage = nextPage + 1
+    else  
+      nextPage = nil
+    end
+  end
+  return tradeTable
+end
 
-  priceTable = JSON(prices):dictionary()
+function queryFiatTrans()
+  local nextPage = 1
+  local transTable = {}
+  while nextPage ~= nil do
+    transData = queryPrivate("fiatwallets/transactions", {page = nextPage, page_size = pageSize})
+    trans = transData.data
+    if #trans > 0 then
+      transTable = unionTables(transTable, trans)
+    end
+    if transData.links.next ~= nil then
+      nextPage = nextPage + 1
+    else  
+      nextPage = nil
+    end
+  end
+  return transTable
+end
+
+
+function queryPrice(symbol, currency)
   return priceTable[symbol][currency]
 end
 
@@ -541,4 +565,15 @@ function dateToTimestamp(date)
       day = tonumber(day)
   })
   return timeSta
+end
+
+function unionTables ( a, b )
+  local result = {}
+  for k,v in pairs ( a ) do
+      table.insert( result, v )
+  end
+  for k,v in pairs ( b ) do
+       table.insert( result, v )
+  end
+  return result
 end
