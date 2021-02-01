@@ -53,7 +53,7 @@ that means that there was a rebalancing of the index.
 Usage
 -----
 
-* For Username: API-Key from Bitpanda
+* For API-Key (Username in older version than 2.4.3 of MoneyMoney): API-Key from Bitpanda
 
 * At "Kontenauswahl" you can select your:
     * Money Wallets (EUR, USD, CHF, GBP, TRY)
