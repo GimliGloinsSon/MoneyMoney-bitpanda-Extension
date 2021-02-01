@@ -101,7 +101,8 @@ local allTrades = {}
 local allFiatTrans = {}
 local allAssetWallets = {}
 local allFiatWallets = {}
-
+local allWalletTrans = {}
+local listIndexWallets = {}
 
 function SupportsBank (protocol, bankCode)
     return protocol == ProtocolWebBanking and bankCode == "bitpanda"
@@ -122,9 +123,15 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
       end
     end
     allTrades = unionTables(allBuys, allSells)
-    allFiatTrans = queryFiatTrans()
+    allFiatTrans = queryTrans("fiatwallets/transactions")
+    allWalletTrans = queryTrans("wallets/transactions")
     allAssetWallets = queryPrivate("asset-wallets")
     allFiatWallets = queryPrivate("fiatwallets")
+    WallettTrans = allWalletTrans
+    getIndWallets = allAssetWallets.data.attributes.index.index.attributes.wallets
+    for index, indexId in pairs(getIndWallets) do
+      listIndexWallets[#listIndexWallets + 1] = indexId.id
+    end
   end
 
 function ListAccounts (knownAccounts)
@@ -208,6 +215,7 @@ function RefreshAccount (account, since)
         end
       end
       return {securities = t}
+      
       -- transactions for FIATS      
     else
       for index, fiatTransaction in pairs(allFiatTrans) do
@@ -268,7 +276,7 @@ function transactionForCryptTransaction(transaction, currency)
       currQuant = calcPurchPrice
       calcPurchPrice = 100
     else 
-      calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt")
+      calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
     end
 
     t = {
@@ -448,12 +456,12 @@ function EndSession ()
     -- Logout.
 end
 
-function queryPurchPrice(accountId, type)
+function queryPurchPrice(accountId, type, cryptWalletId)
   local amount = 0
   local buyPrice = 0
 
   for index, trades in pairs(allTrades) do
-    if trades.attributes.cryptocoin_id == accountId and type == "crypt" then
+    if trades.attributes.cryptocoin_id == accountId and type == "crypt" and trades.attributes.wallet_id == cryptWalletId then
       if trades.attributes.type == "buy" then
         amount = amount + tonumber(trades.attributes.amount_cryptocoin)
         buyPrice = buyPrice + (tonumber(trades.attributes.amount_fiat) * tonumber(trades.attributes.fiat_to_eur_rate))
@@ -471,14 +479,27 @@ function queryPurchPrice(accountId, type)
     end
   end
 
-  -- Wenn Cryptcoin_id == 33 --> prüfen, ob Coin für Fee verwendet wurde
+  -- Wenn Cryptcoin_id == 33 --> prüfen, ob BEST für Fee verwendet wurde und ob es Rewards gab
   if accountId == "33" then
     for index, trades in pairs(allTrades) do
-      if trades.attributes.best_fee_collection ~= nil then
+      if trades.attributes.best_fee_collection ~= nil and not has_value(listIndexWallets, trades.attributes.wallet_id) then
         amount = amount - tonumber(trades.attributes.best_fee_collection.attributes.wallet_transaction.attributes.fee)
         buyPrice = buyPrice - tonumber(trades.attributes.best_fee_collection.attributes.best_used_price_eur)
       end
     end
+    for index, trans in pairs(allWalletTrans) do
+      -- Rewards
+      if trans.attributes.tags ~= nil and #trans.attributes.tags > 0 then
+        if trans.attributes.tags[1].attributes.name == "Reward" then
+          amount = amount + trans.attributes.amount
+        end
+      -- Fee bei Index  
+      elseif trans.attributes.is_bfc then
+        if trans.attributes.best_fee_collection ~= nil and trans.attributes.best_fee_collection.attributes.related_index_action ~= nil then
+          amount = amount - trans.attributes.fee
+        end
+      end
+    end    
   end
 
   if amount > 0 then
@@ -524,11 +545,11 @@ function queryTrades(type)
   return tradeTable
 end
 
-function queryFiatTrans()
+function queryTrans(transType)
   local nextPage = 1
   local transTable = {}
   while nextPage ~= nil do
-    transData = queryPrivate("fiatwallets/transactions", {page = nextPage, page_size = pageSize})
+    transData = queryPrivate(transType, {page = nextPage, page_size = pageSize})
     trans = transData.data
     if #trans > 0 then
       transTable = unionTables(transTable, trans)
@@ -576,4 +597,14 @@ function unionTables ( a, b )
        table.insert( result, v )
   end
   return result
+end
+
+function has_value (tab, val)
+  for index, value in ipairs(tab) do
+      if value == val then
+          return true
+      end
+  end
+
+  return false
 end
