@@ -26,7 +26,7 @@
 -- SOFTWARE.
 
 
-WebBanking{version     = 1.01,
+WebBanking{version     = 1.02,
            url         = "https://api.bitpanda.com/v1/",
            services    = {"bitpanda"},
            description = "Loads FIATs, Krypto, Indizes and Commodities from bitpanda"}
@@ -34,7 +34,7 @@ WebBanking{version     = 1.01,
 local connection = Connection()
 local apiKey
 local walletCurrency = "EUR"
-local pageSize = 50
+local pageSize = 5000
 local coinDict = {
   -- Krypto
   [1] = "Bitcoin",
@@ -219,7 +219,7 @@ function RefreshAccount (account, since)
       -- transactions for FIATS      
     else
       for index, fiatTransaction in pairs(allFiatTrans) do
-        if account.accountNumber == fiatTransaction.attributes.fiat_wallet_id then
+        if account.accountNumber == fiatTransaction.attributes.fiat_wallet_id and fiatTransaction.attributes.status ~= "canceled" then
           local transaction = transactionForFiatTransaction(fiatTransaction, account.accountNumber, account.currency)
           t[#t + 1] = transaction
         end
