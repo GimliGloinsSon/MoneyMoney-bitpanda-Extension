@@ -111,7 +111,6 @@ end
 function InitializeSession (protocol, bankCode, username, username2, password, username3)
     -- Login.
     apiKey = username
-    MM.printStatus("Version: " .. version)
 
     -- Wir holen uns erstmal alle Daten
     prices = connection:request("GET", "https://api.bitpanda.com/v1/ticker", nil, nil, nil)
