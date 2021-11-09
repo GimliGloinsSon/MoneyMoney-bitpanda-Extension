@@ -74,3 +74,18 @@ Usage
 
 
 ![MoneyMoney screenshot with Bitpanda account selection](screens/Kontoauswahl.png)
+
+Version history
+---------------
+
+* 1.02:
+    * filter canceled fiat transactions
+    * added Stock wallets
+
+
+* 1.01:
+    * performance improvement
+
+
+* 1.0:
+    * initial version
