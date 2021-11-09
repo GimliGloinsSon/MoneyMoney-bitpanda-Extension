@@ -24,14 +24,7 @@ Installation
 
 ### Signed copy from Extensions Page (preferred, but you need MoneyMoney >= 2.4.3)
 
-!!!INFO!!!
-At the moment only version 2.4.2 is available. Therefore the extension only works if you
-can switch to the beta-mode of the app. This is only possible if you got the app from the
-developers page. The reason is that the bitpanda URL will be added to the whitelist in 
-upcoming version, so only beta mode works with the URL.
-
 It is not possible to switch to beta mode if you got the app from Apple Appstore.
-Crossing the fingers that 2.4.3 will be released soon.
 
 1. Download a signed version of this from https://moneymoney-app.com/extensions/
   * Open MoneyMoney, tap *Hilfe* > *Zeige Datenbank*
