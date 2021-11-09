@@ -83,6 +83,7 @@ local coinDict = {
   [60] = "Band Protocol",
   [61] = "REN",
   [63] = "UMA",
+  [143] = "Symbol",
   -- Metals
   [28] = "Gold",
   [29] = "Silver",
@@ -277,6 +278,9 @@ function transactionForCryptTransaction(transaction, currency)
       calcPurchPrice = 100
     else 
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
+      if calcPurchPrice == 0 then
+        calcPurchPrice = 0.0000000000001
+      end
     end
 
     t = {
