@@ -83,7 +83,18 @@ local coinDict = {
   [60] = "Band Protocol",
   [61] = "REN",
   [63] = "UMA",
+  [66] = "Ocean Protocol",
+  [69] = "Aragon",
+  [129] = "1inch",
+  [131] = "The Graph",
+  [133] = "Terra",
+  [134] = "Polygon",
+  [138] = "Dedentraland",
+  [139] = "PancakeSwap",
+  [141] = "SushiSwap",
   [143] = "Symbol",
+  [151] = "Axie Infinity Shard",
+  [193] = "SHIBA INU",
   -- Metals
   [28] = "Gold",
   [29] = "Silver",
@@ -93,6 +104,11 @@ local coinDict = {
   [40] = "Bitpanda Crypto Index 5",
   [41] = "Bitpanda Crypto Index 10",
   [42] = "Bitpanda Crypto Index 25",
+  -- Stocks
+  [75] = "Apple",
+  [78] = "Microsoft",
+  [89] = "Allianz",
+  [106] = "Boeing",
 }
 local priceTable = {}
 local typeList = {"buy", "sell"}
@@ -104,6 +120,10 @@ local allAssetWallets = {}
 local allFiatWallets = {}
 local allWalletTrans = {}
 local listIndexWallets = {}
+local allCryptoWallets = {}
+local allStockWallets = {}
+local allCommWallets = {}
+local allWallets = {}
 
 function SupportsBank (protocol, bankCode)
     return protocol == ProtocolWebBanking and bankCode == "bitpanda"
@@ -133,6 +153,9 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
     for index, indexId in pairs(getIndWallets) do
       listIndexWallets[#listIndexWallets + 1] = indexId.id
     end
+    allCryptoWallets = allAssetWallets.data.attributes.cryptocoin.attributes.wallets
+    allStockWallets = allAssetWallets.data.attributes.security.stock.attributes.wallets
+    allCommWallets = allAssetWallets.data.attributes.commodity.metal.attributes.wallets
   end
 
 function ListAccounts (knownAccounts)
@@ -315,7 +338,7 @@ end
 
 function transactionForFiatTransaction(transaction, accountId, currency)
     local name = "unknown"
-    local accountNumber = "unkown IBAN"
+    local accountNumber = "unknown IBAN"
     local bankCode = "unknown BIC"
     local cryptId = 0
     local asset = "unknown Asset"
@@ -338,7 +361,7 @@ function transactionForFiatTransaction(transaction, accountId, currency)
       if not (asset == nil) then
         name = transaction.attributes.trade.attributes.type .. ": " .. coinDict[cryptId]
       else
-        name = transaction.attributes.trade.attributes.type .. ": Unknown Asset"
+        name = transaction.attributes.trade.attributes.type .. ": " .. getWalletName(cryptId)        
       end
     end
 
@@ -458,6 +481,34 @@ end
 
 function EndSession ()
     -- Logout.
+end
+
+function getWalletName(cryptId)
+  for index, wallets in pairs(getIndWallets) do
+    if tonumber(cryptId) == tonumber(wallets.attributes.cryptocoin_id) then
+      return wallets.attributes.name
+    end
+  end
+
+  for index, wallets in pairs(allStockWallets) do
+    if tonumber(cryptId) == tonumber(wallets.attributes.cryptocoin_id) then
+      return wallets.attributes.name
+    end
+  end
+
+  for index, wallets in pairs(allCryptoWallets) do
+    if tonumber(cryptId) == tonumber(wallets.attributes.cryptocoin_id) then
+      return wallets.attributes.name
+    end
+  end
+
+  for index, wallets in pairs(allCommWallets) do
+    if tonumber(cryptId) == tonumber(wallets.attributes.cryptocoin_id) then
+      return wallets.attributes.name
+    end
+  end
+
+  return "Unknown Asset"
 end
 
 function queryPurchPrice(accountId, type, cryptWalletId)
