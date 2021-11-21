@@ -26,7 +26,7 @@
 -- SOFTWARE.
 
 
-WebBanking{version     = 1.02,
+WebBanking{version     = 1.1,
            url         = "https://api.bitpanda.com/v1/",
            services    = {"bitpanda"},
            description = "Loads FIATs, Krypto, Indizes and Commodities from bitpanda"}
@@ -136,6 +136,10 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
     -- Wir holen uns erstmal alle Daten
     prices = connection:request("GET", "https://api.bitpanda.com/v1/ticker", nil, nil, nil)
     priceTable = JSON(prices):dictionary()
+    urlStock = "https://api.bitpanda.com/v2/masterdata" 
+    stocks = connection:request("GET", urlStock, nil, nil, nil)
+    stockPriceTable = JSON(stocks):dictionary()
+    stockPrices = stockPriceTable.data.attributes.stocks
 
     for i, type in pairs(typeList) do
       trades = queryTrades(type)
@@ -212,6 +216,18 @@ function ListAccounts (knownAccounts)
         subAccount = "commodity.metal"
       })
 
+    -- Stock Wallets
+    table.insert(accounts, 
+      {
+        name = "Stock Wallets",
+        owner = user,
+        accountNumber = "Stock Accounts",
+        currency = walletCurrency,
+        portfolio = true,
+        type = AccountTypePortfolio,
+        subAccount = "security.stock"
+      })
+
     return accounts
 end
 
@@ -229,12 +245,14 @@ function RefreshAccount (account, since)
         getTrans = allAssetWallets.data.attributes.index.index.attributes.wallets
       elseif account.subAccount == "commodity.metal" then
         getTrans = allAssetWallets.data.attributes.commodity.metal.attributes.wallets
+      elseif account.subAccount == "security.stock" then
+        getTrans = allAssetWallets.data.attributes.security.stock.attributes.wallets
       else
         return
       end
       for index, cryptTransaction in pairs(getTrans) do
         if tonumber(cryptTransaction.attributes.balance) > 0 then
-          local transaction = transactionForCryptTransaction(cryptTransaction, account.currency)
+          local transaction = transactionForCryptTransaction(cryptTransaction, account.currency, account.subAccount)
           t[#t + 1] = transaction
         end
       end
@@ -282,24 +300,43 @@ function RefreshAccount (account, since)
 
 end
 
-function transactionForCryptTransaction(transaction, currency)
-    local symbol = transaction.attributes.cryptocoin_symbol
-    local currPrice = tonumber(queryPrice(symbol, currency))
+function transactionForCryptTransaction(transaction, currency, type)
+    --local symbol = transaction.attributes.cryptocoin_symbol
+    local symbol = nil
+    local currPrice = 0
     local currQuant = tonumber(transaction.attributes.balance) 
-    local currAmount = currPrice * currQuant 
-
+    local currAmount = 0 
+    local isinString = ""
+    local wpName = transaction.attributes.name
     local calcPurchPrice = 0
     local calcCurrency = nil
     
     -- Calculation for Indizes
-    if transaction.attributes.is_index then
+    if type == "index.index" then
+      symbol = transaction.attributes.cryptocoin_symbol
+      currPrice = tonumber(queryPrice(symbol, currency))
+      currAmount = currPrice * currQuant
       calcCurrency = currency
       calcPurchPrice = queryPurchPrice(transaction.id, "index")
       currPrice = currQuant / calcPurchPrice * 100
       currAmount = currQuant
       currQuant = calcPurchPrice
       calcPurchPrice = 100
+    elseif type == "security.stock" then
+      symbol = transaction.attributes.cryptocoin_symbol
+      currPrice = tonumber(queryStockMasterdata(symbol, "avg_price"))
+      isinString = queryStockMasterdata(symbol, "isin")
+      wpName = wpName .. " - " .. queryStockMasterdata(symbol, "name")
+      currAmount = currPrice * currQuant
+      calcCurrency = nil
+      calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
+      if calcPurchPrice == 0 then
+        calcPurchPrice = 0.0000000000001
+      end
     else 
+      symbol = transaction.attributes.cryptocoin_symbol
+      currPrice = tonumber(queryPrice(symbol, currency))
+      currAmount = currPrice * currQuant
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
       if calcPurchPrice == 0 then
         calcPurchPrice = 0.0000000000001
@@ -308,8 +345,9 @@ function transactionForCryptTransaction(transaction, currency)
 
     t = {
       --String name: Bezeichnung des Wertpapiers
-      name = transaction.attributes.name,
+      name = wpName,
       --String isin: ISIN
+      isin = isinString,
       --String securityNumber: WKN
       securityNumber = symbol,
       --String market: Börse
@@ -662,4 +700,14 @@ function has_value (tab, val)
   end
 
   return false
+end
+
+function queryStockMasterdata(symbol, field)
+  for key, value in pairs(stockPrices) do
+    if value.attributes.symbol == symbol then
+      return value.attributes[field]
+    end
+  end
+
+  return 0
 end

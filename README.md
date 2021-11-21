@@ -71,14 +71,15 @@ Usage
 Version history
 ---------------
 
+* 1.1:
+    * added Stock wallets portfolio
+
 * 1.02:
     * filter canceled fiat transactions
-    * added Stock wallets
-
+    * added Stock wallets IN FIAT transactions
 
 * 1.01:
     * performance improvement
-
 
 * 1.0:
     * initial version
