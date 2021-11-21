@@ -63,6 +63,7 @@ Usage
     * Cryptocoin wallets
     * Index wallets
     * Commodity (metal) wallets
+    * Stock wallets
 
 
 
