@@ -72,6 +72,9 @@ Usage
 Version history
 ---------------
 
+* 1.11:
+    * detailed information for dividend in FIAT transaction
+
 * 1.1:
     * added Stock wallets portfolio
 
