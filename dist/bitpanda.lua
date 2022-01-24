@@ -26,7 +26,7 @@
 -- SOFTWARE.
 
 
-WebBanking{version     = 1.1,
+WebBanking{version     = 1.11,
            url         = "https://api.bitpanda.com/v1/",
            services    = {"bitpanda"},
            description = "Loads FIATs, Krypto, Indizes and Commodities from bitpanda"}
@@ -323,10 +323,10 @@ function transactionForCryptTransaction(transaction, currency, type)
       currQuant = calcPurchPrice
       calcPurchPrice = 100
     elseif type == "security.stock" then
-      symbol = transaction.attributes.cryptocoin_symbol
-      currPrice = tonumber(queryStockMasterdata(symbol, "avg_price"))
-      isinString = queryStockMasterdata(symbol, "isin")
-      wpName = wpName .. " - " .. queryStockMasterdata(symbol, "name")
+      cryptId = transaction.attributes.cryptocoin_id
+      currPrice = tonumber(queryStockMasterdata(cryptId, "avg_price"))
+      isinString = queryStockMasterdata(cryptId, "isin")
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name")
       currAmount = currPrice * currQuant
       calcCurrency = nil
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
@@ -402,6 +402,21 @@ function transactionForFiatTransaction(transaction, accountId, currency)
         name = transaction.attributes.trade.attributes.type .. ": " .. getWalletName(cryptId)
       end
     end
+
+    if not (transaction.attributes.tags == nil) then
+      tags = transaction.attributes.tags
+      if #tags > 0 then
+        for index, fiatTags in pairs(tags) do
+          if fiatTags.attributes.short_name == "corporate_actions.dividend" then
+            name = fiatTags.attributes.name
+            cryptId = transaction.attributes.corporate_action_asset_id
+            name = name .. ": " .. queryStockMasterdata(cryptId, "name")
+          end
+          break
+        end
+      end
+    end
+
 
     if tonumber(transaction.attributes.fee) > 0 then
       fullAmount = tonumber(transaction.attributes.amount) + tonumber(transaction.attributes.fee)
@@ -702,9 +717,9 @@ function has_value (tab, val)
   return false
 end
 
-function queryStockMasterdata(symbol, field)
+function queryStockMasterdata(id, field)
   for key, value in pairs(stockPrices) do
-    if value.attributes.symbol == symbol then
+    if value.id == id then
       return value.attributes[field]
     end
   end
@@ -712,4 +727,4 @@ function queryStockMasterdata(symbol, field)
   return 0
 end
 
--- SIGNATURE: MCwCFBHnrGLbjZpUp9TnMezJLQsCbmsbAhQE0ZW2ckxQkXjE91EQpOaC3vAHXw==
+-- SIGNATURE: MCwCFBrDW/xwQh5BsPr65+r84LAOMDKOAhRXrZriM1gNzgQN7YoBhU3hwMCJ8Q==
