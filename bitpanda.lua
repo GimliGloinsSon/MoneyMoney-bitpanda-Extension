@@ -160,6 +160,16 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
     allCryptoWallets = allAssetWallets.data.attributes.cryptocoin.attributes.wallets
     allStockWallets = allAssetWallets.data.attributes.security.stock.attributes.wallets
     allCommWallets = allAssetWallets.data.attributes.commodity.metal.attributes.wallets
+    allEtfWallets = allAssetWallets.data.attributes.security.etf.attributes.wallets
+
+    grStocks = tablelength(allStockWallets)
+    grComm = tablelength(allCommWallets)
+    grEtf = tablelength(allEtfWallets)
+
+    print("Anzahl Stocks: ", grStocks)
+    print("Anzahl Comm: ", grComm)
+    print("Anzahl ETF: ", grEtf)
+               
   end
 
 function ListAccounts (knownAccounts)
