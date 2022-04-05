@@ -29,7 +29,7 @@
 WebBanking{version     = 1.12,
            url         = "https://api.bitpanda.com/v1/",
            services    = {"bitpanda"},
-           description = "Loads FIATs, Krypto, Indizes and Commodities from bitpanda"}
+           description = "Loads FIATs, Krypto, Indizes, Stocks and Commodities from bitpanda"}
 
 local connection = Connection()
 local apiKey

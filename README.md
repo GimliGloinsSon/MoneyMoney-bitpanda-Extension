@@ -72,6 +72,9 @@ Usage
 Version history
 ---------------
 
+* 1.12:
+    * performance optimization if there are no stock wallets
+
 * 1.11:
     * detailed information for dividend in FIAT transaction
 
