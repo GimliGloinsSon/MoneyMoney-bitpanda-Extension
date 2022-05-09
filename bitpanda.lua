@@ -26,10 +26,10 @@
 -- SOFTWARE.
 
 
-WebBanking{version     = 1.11,
+WebBanking{version     = 1.12,
            url         = "https://api.bitpanda.com/v1/",
            services    = {"bitpanda"},
-           description = "Loads FIATs, Krypto, Indizes and Commodities from bitpanda"}
+           description = "Loads FIATs, Krypto, Indizes, Stocks and Commodities from bitpanda"}
 
 local connection = Connection()
 local apiKey
@@ -137,9 +137,6 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
     prices = connection:request("GET", "https://api.bitpanda.com/v1/ticker", nil, nil, nil)
     priceTable = JSON(prices):dictionary()
     urlStock = "https://api.bitpanda.com/v2/masterdata" 
-    stocks = connection:request("GET", urlStock, nil, nil, nil)
-    stockPriceTable = JSON(stocks):dictionary()
-    stockPrices = stockPriceTable.data.attributes.stocks
 
     for i, type in pairs(typeList) do
       trades = queryTrades(type)
@@ -160,6 +157,17 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
     allCryptoWallets = allAssetWallets.data.attributes.cryptocoin.attributes.wallets
     allStockWallets = allAssetWallets.data.attributes.security.stock.attributes.wallets
     allCommWallets = allAssetWallets.data.attributes.commodity.metal.attributes.wallets
+
+    numStocks = tablelength(allStockWallets)
+
+    if (numStocks == 0) then
+      stockPrices = {} 
+    else
+      stocks = connection:request("GET", urlStock, nil, nil, nil)
+      stockPriceTable = JSON(stocks):dictionary()
+      stockPrices = stockPriceTable.data.attributes.stocks
+    end
+
   end
 
 function ListAccounts (knownAccounts)
@@ -725,4 +733,10 @@ function queryStockMasterdata(id, field)
   end
 
   return 0
+end
+
+function tablelength(T)
+  local count = 0
+  for index, wallets in pairs(T) do count = count + 1 end
+  return count
 end
