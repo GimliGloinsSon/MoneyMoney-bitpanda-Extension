@@ -64,6 +64,8 @@ Usage
     * Index wallets
     * Commodity (metal) wallets
     * Stock wallets
+    * ETF wallets
+    * ETC (Ressource) wallets
 
 
 
@@ -71,6 +73,9 @@ Usage
 
 Version history
 ---------------
+
+* 1.2:
+    * added ETF and ETC (Ressource) wallets
 
 * 1.12:
     * performance optimization if there are no stock wallets
