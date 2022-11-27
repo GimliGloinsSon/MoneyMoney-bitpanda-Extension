@@ -59,11 +59,13 @@ Usage
   * in Versions lower than 2.4.3 put the API-Key in the field username, in the field password you can type whatever you want  	
 
 * At "Kontenauswahl" you can select your:
-    * Money Wallets (EUR, USD, CHF, GBP, TRY)
+    * Money Wallets (EUR, USD, CHF, GBP, TRY, CZK, DKK, HUF, PLN, SEK)
     * Cryptocoin wallets
     * Index wallets
     * Commodity (metal) wallets
     * Stock wallets
+    * ETF wallets
+    * ETC (Ressource) wallets
 
 
 
@@ -71,6 +73,9 @@ Usage
 
 Version history
 ---------------
+
+* 1.2:
+    * added ETF and ETC (Ressource) wallets
 
 * 1.12:
     * performance optimization if there are no stock wallets

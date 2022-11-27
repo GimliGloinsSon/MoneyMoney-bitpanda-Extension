@@ -5,7 +5,7 @@
 --
 -- MIT License
 --
--- Copyright (c) 2021 GimliGloinsSon
+-- Copyright (c) 2022 GimliGloinsSon
 -- 
 -- Permission is hereby granted, free of charge, to any person obtaining a copy
 -- of this software and associated documentation files (the "Software"), to deal
@@ -26,10 +26,10 @@
 -- SOFTWARE.
 
 
-WebBanking{version     = 1.12,
+WebBanking{version     = 1.2,
            url         = "https://api.bitpanda.com/v1/",
            services    = {"bitpanda"},
-           description = "Loads FIATs, Krypto, Indizes, Stocks and Commodities from bitpanda"}
+           description = "Loads FIATs, Krypto, Indizes, Stocks, ETCs (Ressources) and Commodities from bitpanda"}
 
 local connection = Connection()
 local apiKey
@@ -122,6 +122,8 @@ local allWalletTrans = {}
 local listIndexWallets = {}
 local allCryptoWallets = {}
 local allStockWallets = {}
+local allETFWallets = {}
+local allETCWallets = {}
 local allCommWallets = {}
 local allWallets = {}
 
@@ -156,16 +158,22 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
     end
     allCryptoWallets = allAssetWallets.data.attributes.cryptocoin.attributes.wallets
     allStockWallets = allAssetWallets.data.attributes.security.stock.attributes.wallets
+    allETFWallets = allAssetWallets.data.attributes.security.etf.attributes.wallets
+    allETCWallets = allAssetWallets.data.attributes.security.etc.attributes.wallets
     allCommWallets = allAssetWallets.data.attributes.commodity.metal.attributes.wallets
 
     numStocks = tablelength(allStockWallets)
+    numETF = tablelength(allETFWallets)
+    numETC = tablelength(allETCWallets)
 
-    if (numStocks == 0) then
+    if (numStocks == 0) and (numETF == 0) and (numETC == 0) then
       stockPrices = {} 
     else
       stocks = connection:request("GET", urlStock, nil, nil, nil)
       stockPriceTable = JSON(stocks):dictionary()
       stockPrices = stockPriceTable.data.attributes.stocks
+      etfPrices = stockPriceTable.data.attributes.etfs
+      etcPrices = stockPriceTable.data.attributes.etcs
     end
 
   end
@@ -236,7 +244,31 @@ function ListAccounts (knownAccounts)
         subAccount = "security.stock"
       })
 
-    return accounts
+    -- ETF Wallets
+    table.insert(accounts, 
+    {
+      name = "ETF Wallets",
+      owner = user,
+      accountNumber = "ETF Accounts",
+      currency = walletCurrency,
+      portfolio = true,
+      type = AccountTypePortfolio,
+      subAccount = "security.etf"
+    })
+
+     -- ETC Wallets (Ressources)
+     table.insert(accounts, 
+     {
+       name = "Ressource Wallets",
+       owner = user,
+       accountNumber = "Ressource Accounts",
+       currency = walletCurrency,
+       portfolio = true,
+       type = AccountTypePortfolio,
+       subAccount = "security.etc"
+     })
+
+      return accounts
 end
 
 function RefreshAccount (account, since)
@@ -255,6 +287,10 @@ function RefreshAccount (account, since)
         getTrans = allAssetWallets.data.attributes.commodity.metal.attributes.wallets
       elseif account.subAccount == "security.stock" then
         getTrans = allAssetWallets.data.attributes.security.stock.attributes.wallets
+      elseif account.subAccount == "security.etf" then
+        getTrans = allAssetWallets.data.attributes.security.etf.attributes.wallets
+      elseif account.subAccount == "security.etc" then
+        getTrans = allAssetWallets.data.attributes.security.etc.attributes.wallets
       else
         return
       end
@@ -332,9 +368,31 @@ function transactionForCryptTransaction(transaction, currency, type)
       calcPurchPrice = 100
     elseif type == "security.stock" then
       cryptId = transaction.attributes.cryptocoin_id
-      currPrice = tonumber(queryStockMasterdata(cryptId, "avg_price"))
-      isinString = queryStockMasterdata(cryptId, "isin")
-      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name")
+      currPrice = tonumber(queryStockMasterdata(cryptId, "avg_price", stockPrices))
+      isinString = queryStockMasterdata(cryptId, "isin", stockPrices)
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", stockPrices)
+      currAmount = currPrice * currQuant
+      calcCurrency = nil
+      calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
+      if calcPurchPrice == 0 then
+        calcPurchPrice = 0.0000000000001
+      end
+    elseif type == "security.etf" then
+      cryptId = transaction.attributes.cryptocoin_id
+      currPrice = tonumber(queryStockMasterdata(cryptId, "avg_price", etfPrices))
+      isinString = queryStockMasterdata(cryptId, "isin", etfPrices)
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etfPrices)
+      currAmount = currPrice * currQuant
+      calcCurrency = nil
+      calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
+      if calcPurchPrice == 0 then
+        calcPurchPrice = 0.0000000000001
+      end
+    elseif type == "security.etc" then
+      cryptId = transaction.attributes.cryptocoin_id
+      currPrice = tonumber(queryStockMasterdata(cryptId, "avg_price", etcPrices))
+      isinString = queryStockMasterdata(cryptId, "isin", etcPrices)
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etcPrices)
       currAmount = currPrice * currQuant
       calcCurrency = nil
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
@@ -418,7 +476,7 @@ function transactionForFiatTransaction(transaction, accountId, currency)
           if fiatTags.attributes.short_name == "corporate_actions.dividend" then
             name = fiatTags.attributes.name
             cryptId = transaction.attributes.corporate_action_asset_id
-            name = name .. ": " .. queryStockMasterdata(cryptId, "name")
+            name = name .. ": " .. queryStockMasterdata(cryptId, "name", stockPrices)
           end
           break
         end  
@@ -552,6 +610,18 @@ function getWalletName(cryptId)
   end
 
   for index, wallets in pairs(allStockWallets) do
+    if tonumber(cryptId) == tonumber(wallets.attributes.cryptocoin_id) then
+      return wallets.attributes.name
+    end
+  end
+
+  for index, wallets in pairs(allETFWallets) do
+    if tonumber(cryptId) == tonumber(wallets.attributes.cryptocoin_id) then
+      return wallets.attributes.name
+    end
+  end
+
+  for index, wallets in pairs(allETCWallets) do
     if tonumber(cryptId) == tonumber(wallets.attributes.cryptocoin_id) then
       return wallets.attributes.name
     end
@@ -725,8 +795,8 @@ function has_value (tab, val)
   return false
 end
 
-function queryStockMasterdata(id, field)
-  for key, value in pairs(stockPrices) do
+function queryStockMasterdata(id, field, table)
+  for key, value in pairs(table) do
     if value.id == id then
       return value.attributes[field]
     end
