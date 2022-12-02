@@ -26,7 +26,7 @@
 -- SOFTWARE.
 
 
-WebBanking{version     = 1.2,
+WebBanking{version     = 1.21,
            url         = "https://api.bitpanda.com/v1/",
            services    = {"bitpanda"},
            description = "Loads FIATs, Krypto, Indizes, Stocks, ETCs (Ressources) and Commodities from bitpanda"}
@@ -295,7 +295,7 @@ function RefreshAccount (account, since)
         return
       end
       for index, cryptTransaction in pairs(getTrans) do
-        if tonumber(cryptTransaction.attributes.balance) > 0 then
+        if tonumber(cryptTransaction.attributes.balance) >= 0 then
           local transaction = transactionForCryptTransaction(cryptTransaction, account.currency, account.subAccount)
           t[#t + 1] = transaction
         end
