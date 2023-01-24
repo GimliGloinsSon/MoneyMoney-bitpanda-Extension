@@ -74,6 +74,9 @@ Usage
 Version history
 ---------------
 
+* 1.22:
+    * bugfix getting Index names
+
 * 1.21:
     * show wallets for staked cryptos
 
