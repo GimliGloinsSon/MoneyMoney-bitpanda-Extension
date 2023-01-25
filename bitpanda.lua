@@ -26,7 +26,7 @@
 -- SOFTWARE.
 
 
-WebBanking{version     = 1.21,
+WebBanking{version     = 1.22,
            url         = "https://api.bitpanda.com/v1/",
            services    = {"bitpanda"},
            description = "Loads FIATs, Krypto, Indizes, Stocks, ETCs (Ressources) and Commodities from bitpanda"}
@@ -34,7 +34,7 @@ WebBanking{version     = 1.21,
 local connection = Connection()
 local apiKey
 local walletCurrency = "EUR"
-local pageSize = 5000
+local pageSize = 500
 local coinDict = {
   -- Krypto
   [1] = "Bitcoin",
@@ -540,6 +540,9 @@ end
 
 function getIndexBuys(currency, currIndex, currCryptId, accountId, type)
   currIndexName = coinDict[tonumber(currCryptId)]
+  if currIndexName == nil then
+    currIndexName = getWalletName(currCryptId)        
+  end
   local firstTrans = true
   local currDate = nil
   betrag = 0
