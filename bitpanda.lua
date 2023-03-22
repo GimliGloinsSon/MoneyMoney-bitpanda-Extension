@@ -172,8 +172,7 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
     else
       stockData = connection:request("GET", urlStockData, nil, nil, nil)
       stockDataTable = JSON(stockData):dictionary()
-      --stockPrice, charset, mimeType = connection:request("POST", urlStockPrices, "", "", "")
-      stockPrice = connection:request("GET", urlStockPrices, nil, nil, nil)
+      stockPrice, charset, mimeType = connection:request("POST", urlStockPrices, "", "")
       stockPriceTable = JSON(stockPrice):dictionary()
       stockPrices = stockPriceTable.data
       stockData = stockDataTable.data.attributes.stocks
@@ -373,7 +372,7 @@ function transactionForCryptTransaction(transaction, currency, type)
       calcPurchPrice = 100
     elseif type == "security.stock" then
       cryptId = transaction.attributes.cryptocoin_id
-      currPrice = tonumber(queryStockMasterdata(cryptId, "avg_price", stockPrices))
+      currPrice = tonumber(queryStockMasterdata(cryptId, "price", stockPrices))
       isinString = queryStockMasterdata(cryptId, "isin", stockData)
       wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", stockData)
       currAmount = currPrice * currQuant
@@ -384,7 +383,7 @@ function transactionForCryptTransaction(transaction, currency, type)
       end
     elseif type == "security.etf" then
       cryptId = transaction.attributes.cryptocoin_id
-      currPrice = tonumber(queryStockMasterdata(cryptId, "avg_price", stockPrices))
+      currPrice = tonumber(queryStockMasterdata(cryptId, "price", stockPrices))
       isinString = queryStockMasterdata(cryptId, "isin", etfData)
       wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etfData)
       currAmount = currPrice * currQuant
@@ -395,7 +394,7 @@ function transactionForCryptTransaction(transaction, currency, type)
       end
     elseif type == "security.etc" then
       cryptId = transaction.attributes.cryptocoin_id
-      currPrice = tonumber(queryStockMasterdata(cryptId, "avg_price", stockPrices))
+      currPrice = tonumber(queryStockMasterdata(cryptId, "price", stockPrices))
       isinString = queryStockMasterdata(cryptId, "isin", etcData)
       wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etcData)
       currAmount = currPrice * currQuant
