@@ -74,6 +74,9 @@ Usage
 Version history
 ---------------
 
+* 1.3:
+    * use mew api to get prices
+
 * 1.22:
     * bugfix getting Index names
 
