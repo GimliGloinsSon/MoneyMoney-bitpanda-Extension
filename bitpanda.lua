@@ -1,22 +1,22 @@
--- Inofficial Bitpanda Extension (www.bitpanda.com) for MoneyMoney 
+-- Inofficial Bitpanda Extension (www.bitpanda.com) for MoneyMoney
 -- Fetches available data from Bitpanda API
--- 
+--
 -- Username: API-Key
 --
 -- MIT License
 --
 -- Copyright (c) 2022 GimliGloinsSon
--- 
+--
 -- Permission is hereby granted, free of charge, to any person obtaining a copy
 -- of this software and associated documentation files (the "Software"), to deal
 -- in the Software without restriction, including without limitation the rights
 -- to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 -- copies of the Software, and to permit persons to whom the Software is
 -- furnished to do so, subject to the following conditions:
--- 
+--
 -- The above copyright notice and this permission notice shall be included in all
 -- copies or substantial portions of the Software.
--- 
+--
 -- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 -- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 -- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -26,7 +26,7 @@
 -- SOFTWARE.
 
 
-WebBanking{version     = 1.22,
+WebBanking{version     = 1.3,
            url         = "https://api.bitpanda.com/v1/",
            services    = {"bitpanda"},
            description = "Loads FIATs, Krypto, Indizes, Stocks, ETCs (Ressources) and Commodities from bitpanda"}
@@ -138,7 +138,8 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
     -- Wir holen uns erstmal alle Daten
     prices = connection:request("GET", "https://api.bitpanda.com/v1/ticker", nil, nil, nil)
     priceTable = JSON(prices):dictionary()
-    urlStock = "https://api.bitpanda.com/v2/masterdata" 
+    urlStockPrices = "https://api.bitpanda.com/v1/assets/prices"
+    urlStockData = "https://api.bitpanda.com/v3/currencies"
 
     for i, type in pairs(typeList) do
       trades = queryTrades(type)
@@ -167,13 +168,17 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
     numETC = tablelength(allETCWallets)
 
     if (numStocks == 0) and (numETF == 0) and (numETC == 0) then
-      stockPrices = {} 
+      stockPrices = {}
     else
-      stocks = connection:request("GET", urlStock, nil, nil, nil)
-      stockPriceTable = JSON(stocks):dictionary()
-      stockPrices = stockPriceTable.data.attributes.stocks
-      etfPrices = stockPriceTable.data.attributes.etfs
-      etcPrices = stockPriceTable.data.attributes.etcs
+      stockData = connection:request("GET", urlStockData, nil, nil, nil)
+      stockDataTable = JSON(stockData):dictionary()
+      --stockPrice, charset, mimeType = connection:request("POST", urlStockPrices, "", "", "")
+      stockPrice = connection:request("GET", urlStockPrices, nil, nil, nil)
+      stockPriceTable = JSON(stockPrice):dictionary()
+      stockPrices = stockPriceTable.data
+      stockData = stockDataTable.data.attributes.stocks
+      etfData = stockDataTable.data.attributes.etfs
+      etcData = stockDataTable.data.attributes.etcs
     end
 
   end
@@ -184,7 +189,7 @@ function ListAccounts (knownAccounts)
 
     -- FIAT Wallets
     for key, account in pairs(allFiatWallets.data) do
-      table.insert(accounts, 
+      table.insert(accounts,
       {
         name = account.attributes.name,
         owner = user,
@@ -197,7 +202,7 @@ function ListAccounts (knownAccounts)
     end
 
     -- Crypto Wallets
-    table.insert(accounts, 
+    table.insert(accounts,
       {
         name = "Krypto",
         owner = user,
@@ -209,7 +214,7 @@ function ListAccounts (knownAccounts)
       })
 
     -- Indizes Wallets
-    table.insert(accounts, 
+    table.insert(accounts,
       {
         name = "Indizes",
         owner = user,
@@ -219,9 +224,9 @@ function ListAccounts (knownAccounts)
         type = AccountTypePortfolio,
         subAccount = "index.index"
       })
-  
+
     -- Commodity Wallets
-    table.insert(accounts, 
+    table.insert(accounts,
       {
         name = "Commodities",
         owner = user,
@@ -233,7 +238,7 @@ function ListAccounts (knownAccounts)
       })
 
     -- Stock Wallets
-    table.insert(accounts, 
+    table.insert(accounts,
       {
         name = "Stock Wallets",
         owner = user,
@@ -245,7 +250,7 @@ function ListAccounts (knownAccounts)
       })
 
     -- ETF Wallets
-    table.insert(accounts, 
+    table.insert(accounts,
     {
       name = "ETF Wallets",
       owner = user,
@@ -257,7 +262,7 @@ function ListAccounts (knownAccounts)
     })
 
      -- ETC Wallets (Ressources)
-     table.insert(accounts, 
+     table.insert(accounts,
      {
        name = "Ressource Wallets",
        owner = user,
@@ -279,7 +284,7 @@ function RefreshAccount (account, since)
 
     -- transactions for Depot
     if account.portfolio then
-      if account.subAccount == "cryptocoin" then 
+      if account.subAccount == "cryptocoin" then
         getTrans = allAssetWallets.data.attributes.cryptocoin.attributes.wallets
       elseif account.subAccount == "index.index" then
         getTrans = allAssetWallets.data.attributes.index.index.attributes.wallets
@@ -301,8 +306,8 @@ function RefreshAccount (account, since)
         end
       end
       return {securities = t}
-      
-      -- transactions for FIATS      
+
+      -- transactions for FIATS
     else
       for index, fiatTransaction in pairs(allFiatTrans) do
         if account.accountNumber == fiatTransaction.attributes.fiat_wallet_id and fiatTransaction.attributes.status ~= "canceled" then
@@ -335,7 +340,7 @@ function RefreshAccount (account, since)
           sum = fiatBalance.attributes.balance
         end
       end
-  
+
       return {
           balance = sum,
           transactions = t
@@ -348,13 +353,13 @@ function transactionForCryptTransaction(transaction, currency, type)
     --local symbol = transaction.attributes.cryptocoin_symbol
     local symbol = nil
     local currPrice = 0
-    local currQuant = tonumber(transaction.attributes.balance) 
-    local currAmount = 0 
+    local currQuant = tonumber(transaction.attributes.balance)
+    local currAmount = 0
     local isinString = ""
     local wpName = transaction.attributes.name
     local calcPurchPrice = 0
     local calcCurrency = nil
-    
+
     -- Calculation for Indizes
     if type == "index.index" then
       symbol = transaction.attributes.cryptocoin_symbol
@@ -369,8 +374,8 @@ function transactionForCryptTransaction(transaction, currency, type)
     elseif type == "security.stock" then
       cryptId = transaction.attributes.cryptocoin_id
       currPrice = tonumber(queryStockMasterdata(cryptId, "avg_price", stockPrices))
-      isinString = queryStockMasterdata(cryptId, "isin", stockPrices)
-      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", stockPrices)
+      isinString = queryStockMasterdata(cryptId, "isin", stockData)
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", stockData)
       currAmount = currPrice * currQuant
       calcCurrency = nil
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
@@ -379,9 +384,9 @@ function transactionForCryptTransaction(transaction, currency, type)
       end
     elseif type == "security.etf" then
       cryptId = transaction.attributes.cryptocoin_id
-      currPrice = tonumber(queryStockMasterdata(cryptId, "avg_price", etfPrices))
-      isinString = queryStockMasterdata(cryptId, "isin", etfPrices)
-      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etfPrices)
+      currPrice = tonumber(queryStockMasterdata(cryptId, "avg_price", stockPrices))
+      isinString = queryStockMasterdata(cryptId, "isin", etfData)
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etfData)
       currAmount = currPrice * currQuant
       calcCurrency = nil
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
@@ -390,16 +395,16 @@ function transactionForCryptTransaction(transaction, currency, type)
       end
     elseif type == "security.etc" then
       cryptId = transaction.attributes.cryptocoin_id
-      currPrice = tonumber(queryStockMasterdata(cryptId, "avg_price", etcPrices))
-      isinString = queryStockMasterdata(cryptId, "isin", etcPrices)
-      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etcPrices)
+      currPrice = tonumber(queryStockMasterdata(cryptId, "avg_price", stockPrices))
+      isinString = queryStockMasterdata(cryptId, "isin", etcData)
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etcData)
       currAmount = currPrice * currQuant
       calcCurrency = nil
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
       if calcPurchPrice == 0 then
         calcPurchPrice = 0.0000000000001
       end
-    else 
+    else
       symbol = transaction.attributes.cryptocoin_symbol
       currPrice = tonumber(queryPrice(symbol, currency))
       currAmount = currPrice * currQuant
@@ -446,7 +451,7 @@ function transactionForFiatTransaction(transaction, accountId, currency)
     local bankCode = "unknown BIC"
     local cryptId = 0
     local asset = "unknown Asset"
-    local purposeStr = ""  
+    local purposeStr = ""
 
     if not (transaction.attributes.bank_account_details == nil) then
       name = transaction.attributes.bank_account_details.attributes.holder
@@ -465,7 +470,7 @@ function transactionForFiatTransaction(transaction, accountId, currency)
       if not (asset == nil) then
         name = transaction.attributes.trade.attributes.type .. ": " .. coinDict[cryptId]
       else
-        name = transaction.attributes.trade.attributes.type .. ": " .. getWalletName(cryptId)        
+        name = transaction.attributes.trade.attributes.type .. ": " .. getWalletName(cryptId)
       end
     end
 
@@ -476,10 +481,10 @@ function transactionForFiatTransaction(transaction, accountId, currency)
           if fiatTags.attributes.short_name == "corporate_actions.dividend" then
             name = fiatTags.attributes.name
             cryptId = transaction.attributes.corporate_action_asset_id
-            name = name .. ": " .. queryStockMasterdata(cryptId, "name", stockPrices)
+            name = name .. ": " .. queryStockMasterdata(cryptId, "name", stockData)
           end
           break
-        end  
+        end
       end
     end
 
@@ -494,7 +499,7 @@ function transactionForFiatTransaction(transaction, accountId, currency)
     if transaction.attributes.is_savings then
       purposeStr = purposeStr .. "Booking reserved for savings plan. Amount not available!"
     end
-  
+
     t = {
       -- String name: Name des Auftraggebers/Zahlungsempfängers
       name = name,
@@ -536,12 +541,12 @@ function transactionForFiatTransaction(transaction, accountId, currency)
     else
         return amount * -1
     end
-end        
+end
 
 function getIndexBuys(currency, currIndex, currCryptId, accountId, type)
   currIndexName = coinDict[tonumber(currCryptId)]
   if currIndexName == nil then
-    currIndexName = getWalletName(currCryptId)        
+    currIndexName = getWalletName(currCryptId)
   end
   local firstTrans = true
   local currDate = nil
@@ -577,13 +582,13 @@ function getIndexBuys(currency, currIndex, currCryptId, accountId, type)
           }
           currDate = string.sub(trade.attributes.time.date_iso8601, 1, 13)
           betrag = tonumber(trade.attributes.amount_fiat)
-          t[#t + 1] = trans                
+          t[#t + 1] = trans
       else
           betrag = betrag + tonumber(trade.attributes.amount_fiat)
       end
     end
   end
-    
+
   if betrag > 0 then
     trans = {
         name = bookingText .. ": " .. currIndexName,
@@ -682,13 +687,13 @@ function queryPurchPrice(accountId, type, cryptWalletId)
         if trans.attributes.tags[1].attributes.name == "Reward" then
           amount = amount + trans.attributes.amount
         end
-      -- Fee bei Index  
+      -- Fee bei Index
       elseif trans.attributes.is_bfc then
         if trans.attributes.best_fee_collection ~= nil and trans.attributes.best_fee_collection.attributes.related_index_action ~= nil then
           amount = amount - trans.attributes.fee
         end
       end
-    end    
+    end
   end
 
   if amount > 0 then
@@ -700,19 +705,19 @@ end
 
 function queryPrivate(method, params)
     local path = method
-  
+
     if not (params == nil) then
       local queryParams = httpBuildQuery(params)
       if string.len(queryParams) > 0 then
         path = path .. "?" .. queryParams
       end
     end
-  
+
     local headers = {}
     headers["X-API-KEY"] = apiKey
-  
+
     content = connection:request("GET", url .. path, nil, nil, headers)
-  
+
     return JSON(content):dictionary()
 end
 
@@ -727,7 +732,7 @@ function queryTrades(type)
     end
     if tradeData.links.next ~= nil then
       nextPage = nextPage + 1
-    else  
+    else
       nextPage = nil
     end
   end
@@ -745,7 +750,7 @@ function queryTrans(transType)
     end
     if transData.links.next ~= nil then
       nextPage = nextPage + 1
-    else  
+    else
       nextPage = nil
     end
   end
