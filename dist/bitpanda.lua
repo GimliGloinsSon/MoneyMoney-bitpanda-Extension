@@ -26,7 +26,7 @@
 -- SOFTWARE.
 
 
-WebBanking{version     = 1.22,
+WebBanking{version     = 1.3,
            url         = "https://api.bitpanda.com/v1/",
            services    = {"bitpanda"},
            description = "Loads FIATs, Krypto, Indizes, Stocks, ETCs (Ressources) and Commodities from bitpanda"}
@@ -138,7 +138,8 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
     -- Wir holen uns erstmal alle Daten
     prices = connection:request("GET", "https://api.bitpanda.com/v1/ticker", nil, nil, nil)
     priceTable = JSON(prices):dictionary()
-    urlStock = "https://api.bitpanda.com/v2/masterdata"
+    urlStockPrices = "https://api.bitpanda.com/v1/assets/prices"
+    urlStockData = "https://api.bitpanda.com/v3/currencies"
 
     for i, type in pairs(typeList) do
       trades = queryTrades(type)
@@ -169,11 +170,14 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
     if (numStocks == 0) and (numETF == 0) and (numETC == 0) then
       stockPrices = {}
     else
-      stocks = connection:request("GET", urlStock, nil, nil, nil)
-      stockPriceTable = JSON(stocks):dictionary()
-      stockPrices = stockPriceTable.data.attributes.stocks
-      etfPrices = stockPriceTable.data.attributes.etfs
-      etcPrices = stockPriceTable.data.attributes.etcs
+      stockData = connection:request("GET", urlStockData, nil, nil, nil)
+      stockDataTable = JSON(stockData):dictionary()
+      stockPrice, charset, mimeType = connection:request("POST", urlStockPrices, "", "")
+      stockPriceTable = JSON(stockPrice):dictionary()
+      stockPrices = stockPriceTable.data
+      stockData = stockDataTable.data.attributes.stocks
+      etfData = stockDataTable.data.attributes.etfs
+      etcData = stockDataTable.data.attributes.etcs
     end
 
   end
@@ -368,9 +372,9 @@ function transactionForCryptTransaction(transaction, currency, type)
       calcPurchPrice = 100
     elseif type == "security.stock" then
       cryptId = transaction.attributes.cryptocoin_id
-      currPrice = tonumber(queryStockMasterdata(cryptId, "avg_price", stockPrices))
-      isinString = queryStockMasterdata(cryptId, "isin", stockPrices)
-      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", stockPrices)
+      currPrice = tonumber(queryStockMasterdata(cryptId, "price", stockPrices))
+      isinString = queryStockMasterdata(cryptId, "isin", stockData)
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", stockData)
       currAmount = currPrice * currQuant
       calcCurrency = nil
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
@@ -379,9 +383,9 @@ function transactionForCryptTransaction(transaction, currency, type)
       end
     elseif type == "security.etf" then
       cryptId = transaction.attributes.cryptocoin_id
-      currPrice = tonumber(queryStockMasterdata(cryptId, "avg_price", etfPrices))
-      isinString = queryStockMasterdata(cryptId, "isin", etfPrices)
-      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etfPrices)
+      currPrice = tonumber(queryStockMasterdata(cryptId, "price", stockPrices))
+      isinString = queryStockMasterdata(cryptId, "isin", etfData)
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etfData)
       currAmount = currPrice * currQuant
       calcCurrency = nil
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
@@ -390,9 +394,9 @@ function transactionForCryptTransaction(transaction, currency, type)
       end
     elseif type == "security.etc" then
       cryptId = transaction.attributes.cryptocoin_id
-      currPrice = tonumber(queryStockMasterdata(cryptId, "avg_price", etcPrices))
-      isinString = queryStockMasterdata(cryptId, "isin", etcPrices)
-      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etcPrices)
+      currPrice = tonumber(queryStockMasterdata(cryptId, "price", stockPrices))
+      isinString = queryStockMasterdata(cryptId, "isin", etcData)
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etcData)
       currAmount = currPrice * currQuant
       calcCurrency = nil
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
@@ -476,7 +480,7 @@ function transactionForFiatTransaction(transaction, accountId, currency)
           if fiatTags.attributes.short_name == "corporate_actions.dividend" then
             name = fiatTags.attributes.name
             cryptId = transaction.attributes.corporate_action_asset_id
-            name = name .. ": " .. queryStockMasterdata(cryptId, "name", stockPrices)
+            name = name .. ": " .. queryStockMasterdata(cryptId, "name", stockData)
           end
           break
         end
@@ -814,4 +818,4 @@ function tablelength(T)
   return count
 end
 
--- SIGNATURE: MCwCFCvRLbcCxYY9xIohaXER0lV++aykAhRYepuOPY9TQBv9Lm0hydcDTW10JA==
+-- SIGNATURE: MCwCFDlr4lN5+ex0Q/HDmOm4EdSw9GCJAhQSB5R3tNeJPAa+5Ewf0fClcFqITw==
