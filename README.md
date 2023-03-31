@@ -74,6 +74,9 @@ Usage
 Version history
 ---------------
 
+* 1.31:
+    * bugfix calculate index transactions
+
 * 1.3:
     * use mew api to get prices
 
