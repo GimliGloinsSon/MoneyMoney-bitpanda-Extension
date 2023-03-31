@@ -717,8 +717,6 @@ function queryTrades(type)
   local nextPage = 1
   local tradeTable = {}
   while nextPage ~= nil do
-    --tradeData = queryPrivate("trades", {type = type, page = nextPage, page_size = pageSize})
-    --get all trades
     tradeData = queryPrivate("trades", {page = nextPage, page_size = pageSize})
     trades = tradeData.data
     if #trades > 0 then
