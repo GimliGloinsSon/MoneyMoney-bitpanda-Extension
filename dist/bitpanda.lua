@@ -26,7 +26,7 @@
 -- SOFTWARE.
 
 
-WebBanking{version     = 1.3,
+WebBanking{version     = 1.31,
            url         = "https://api.bitpanda.com/v1/",
            services    = {"bitpanda"},
            description = "Loads FIATs, Krypto, Indizes, Stocks, ETCs (Ressources) and Commodities from bitpanda"}
@@ -141,13 +141,7 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
     urlStockPrices = "https://api.bitpanda.com/v1/assets/prices"
     urlStockData = "https://api.bitpanda.com/v3/currencies"
 
-    for i, type in pairs(typeList) do
-      trades = queryTrades(type)
-      if type == "buy" then allBuys = trades
-      else allSells = trades
-      end
-    end
-    allTrades = unionTables(allBuys, allSells)
+    allTrades = queryTrades(type)
     allFiatTrans = queryTrans("fiatwallets/transactions")
     allWalletTrans = queryTrans("wallets/transactions")
     allAssetWallets = queryPrivate("asset-wallets")
@@ -324,7 +318,7 @@ function RefreshAccount (account, since)
             t[#t + 1] = listOfTransactions[i]
           end
         end
-        --Sells
+      --Sells
         listOfTransactions = getIndexBuys(account.currency, index.id, index.attributes.cryptocoin_id, account.accountNumber, "sell")
         if (#listOfTransactions) > 0 then
           for i = 1, #listOfTransactions, 1 do
@@ -554,16 +548,15 @@ function getIndexBuys(currency, currIndex, currCryptId, accountId, type)
   t = {}
   bookingText = "Buy"
   factor = -1
-  trades = allBuys
+  trades = allTrades
 
   if type == "sell" then
     bookingText = "Sell"
     factor = 1
-    trades = allSells
   end
 
   for key, trade in pairs(trades) do
-    if trade.attributes.wallet_id == currIndex and trade.attributes.fiat_wallet_id == accountId then
+    if trade.attributes.wallet_id == currIndex and trade.attributes.fiat_wallet_id == accountId and trade.attributes.type == type then
       if (currDate ~= string.sub(trade.attributes.time.date_iso8601, 1, 13) and firstTrans) then
           currDate = string.sub(trade.attributes.time.date_iso8601, 1, 13)
           firstTrans = false
@@ -588,7 +581,7 @@ function getIndexBuys(currency, currIndex, currCryptId, accountId, type)
     end
   end
 
-  if betrag > 0 then
+  if betrag ~= 0 then
     trans = {
         name = bookingText .. ": " .. currIndexName,
         accountNumber = "unkown IBAN",
@@ -724,7 +717,7 @@ function queryTrades(type)
   local nextPage = 1
   local tradeTable = {}
   while nextPage ~= nil do
-    tradeData = queryPrivate("trades", {type = type, page = nextPage, page_size = pageSize})
+    tradeData = queryPrivate("trades", {page = nextPage, page_size = pageSize})
     trades = tradeData.data
     if #trades > 0 then
       tradeTable = unionTables(tradeTable, trades)
@@ -818,4 +811,4 @@ function tablelength(T)
   return count
 end
 
--- SIGNATURE: MCwCFDlr4lN5+ex0Q/HDmOm4EdSw9GCJAhQSB5R3tNeJPAa+5Ewf0fClcFqITw==
+-- SIGNATURE: MCwCFBoAIow3RcwQj3+fx61EBVcg8JHIAhQucSSqxHAlOROsoyDXsbQigaQbXQ==
