@@ -26,7 +26,7 @@
 -- SOFTWARE.
 
 
-WebBanking{version     = 1.31,
+WebBanking{version     = 1.4,
            url         = "https://api.bitpanda.com/v1/",
            services    = {"bitpanda"},
            description = "Loads FIATs, Krypto, Indizes, Stocks, ETCs (Ressources) and Commodities from bitpanda"}
@@ -293,7 +293,8 @@ function RefreshAccount (account, since)
         return
       end
       for index, cryptTransaction in pairs(getTrans) do
-        if tonumber(cryptTransaction.attributes.balance) >= 0 then
+        --if tonumber(cryptTransaction.attributes.balance) >= 0 then
+        if tonumber(cryptTransaction.attributes.balance) > 0 then
           local transaction = transactionForCryptTransaction(cryptTransaction, account.currency, account.subAccount)
           t[#t + 1] = transaction
         end
@@ -443,6 +444,7 @@ function transactionForFiatTransaction(transaction, accountId, currency)
     local accountNumber = "unknown IBAN"
     local bankCode = "unknown BIC"
     local cryptId = 0
+    local cryptSym = "unknown Crypto"
     local asset = "unknown Asset"
     local purposeStr = ""
 
@@ -459,11 +461,12 @@ function transactionForFiatTransaction(transaction, accountId, currency)
 
     if not (transaction.attributes.trade == nil) then
       cryptId = tonumber(transaction.attributes.trade.attributes.cryptocoin_id)
+      cryptSym = transaction.attributes.trade.attributes.cryptocoin_symbol
       asset = coinDict[cryptId]
       if not (asset == nil) then
         name = transaction.attributes.trade.attributes.type .. ": " .. coinDict[cryptId]
       else
-        name = transaction.attributes.trade.attributes.type .. ": " .. getWalletName(cryptId)
+        name = transaction.attributes.trade.attributes.type .. ": " .. getWalletName(cryptId, cryptSym)
       end
     end
 
@@ -474,7 +477,11 @@ function transactionForFiatTransaction(transaction, accountId, currency)
           if fiatTags.attributes.short_name == "corporate_actions.dividend" then
             name = fiatTags.attributes.name
             cryptId = transaction.attributes.corporate_action_asset_id
-            name = name .. ": " .. queryStockMasterdata(cryptId, "name", stockData)
+            if not (stockData == nil) then
+              name = name .. ": " .. queryStockMasterdata(cryptId, "name", stockData)
+            else
+              name = name .. ": " .. "unknown interest or dividend"
+            end
           end
           break
         end
@@ -539,7 +546,7 @@ end
 function getIndexBuys(currency, currIndex, currCryptId, accountId, type)
   currIndexName = coinDict[tonumber(currCryptId)]
   if currIndexName == nil then
-    currIndexName = getWalletName(currCryptId)
+    currIndexName = getWalletName(currCryptId, "unknown Index")
   end
   local firstTrans = true
   local currDate = nil
@@ -602,7 +609,7 @@ function EndSession ()
     -- Logout.
 end
 
-function getWalletName(cryptId)
+function getWalletName(cryptId, default)
   for index, wallets in pairs(getIndWallets) do
     if tonumber(cryptId) == tonumber(wallets.attributes.cryptocoin_id) then
       return wallets.attributes.name
@@ -639,7 +646,7 @@ function getWalletName(cryptId)
     end
   end
 
-  return "Unknown Asset"
+  return default
 end
 
 function queryPurchPrice(accountId, type, cryptWalletId)
