@@ -124,6 +124,7 @@ local allCryptoWallets = {}
 local allStockWallets = {}
 local allETFWallets = {}
 local allETCWallets = {}
+local allFiatEarnWallets = {}
 local allCommWallets = {}
 local allWallets = {}
 
@@ -155,13 +156,15 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
     allStockWallets = allAssetWallets.data.attributes.security.stock.attributes.wallets
     allETFWallets = allAssetWallets.data.attributes.security.etf.attributes.wallets
     allETCWallets = allAssetWallets.data.attributes.security.etc.attributes.wallets
+    allFiatEarnWallets = allAssetWallets.data.attributes.security.fiat_earn.attributes.wallets
     allCommWallets = allAssetWallets.data.attributes.commodity.metal.attributes.wallets
 
     numStocks = tablelength(allStockWallets)
     numETF = tablelength(allETFWallets)
     numETC = tablelength(allETCWallets)
+    numFiatEarn = tablelength(allETCWallets)
 
-    if (numStocks == 0) and (numETF == 0) and (numETC == 0) then
+    if (numStocks == 0) and (numETF == 0) and (numETC == 0) (numFiatEarn == 0) then
       stockPrices = {}
     else
       stockData = connection:request("GET", urlStockData, nil, nil, nil)
@@ -172,6 +175,7 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
       stockData = stockDataTable.data.attributes.stocks
       etfData = stockDataTable.data.attributes.etfs
       etcData = stockDataTable.data.attributes.etcs
+      fiatEarnData = stockDataTable.data.attributes.fiat_earns
     end
 
   end
@@ -254,18 +258,30 @@ function ListAccounts (knownAccounts)
       subAccount = "security.etf"
     })
 
-     -- ETC Wallets (Ressources)
-     table.insert(accounts,
-     {
-       name = "Ressource Wallets",
-       owner = user,
-       accountNumber = "Ressource Accounts",
-       currency = walletCurrency,
-       portfolio = true,
-       type = AccountTypePortfolio,
-       subAccount = "security.etc"
-     })
+    -- ETC Wallets (Ressources)
+    table.insert(accounts,
+    {
+      name = "Ressource Wallets",
+      owner = user,
+      accountNumber = "Ressource Accounts",
+      currency = walletCurrency,
+      portfolio = true,
+      type = AccountTypePortfolio,
+      subAccount = "security.etc"
+    })
 
+    -- Fiat Earn Wallets (Cash Plus)
+    table.insert(accounts,
+    {
+      name = "Cash Plus Wallets",
+      owner = user,
+      accountNumber = "Cash Plus Accounts",
+      currency = walletCurrency,
+      portfolio = true,
+      type = AccountTypePortfolio,
+      subAccount = "security.fiat_earn"
+    })
+     
       return accounts
 end
 
@@ -289,6 +305,8 @@ function RefreshAccount (account, since)
         getTrans = allAssetWallets.data.attributes.security.etf.attributes.wallets
       elseif account.subAccount == "security.etc" then
         getTrans = allAssetWallets.data.attributes.security.etc.attributes.wallets
+      elseif account.subAccount == "security.fiat_earn" then
+        getTrans = allAssetWallets.data.attributes.security.fiat_earn.attributes.wallets
       else
         return
       end
@@ -398,6 +416,14 @@ function transactionForCryptTransaction(transaction, currency, type)
       if calcPurchPrice == 0 then
         calcPurchPrice = 0.0000000000001
       end
+    elseif type == "security.fiat_earn" then
+      symbol = transaction.attributes.cryptocoin_symbol
+      cryptId = transaction.attributes.cryptocoin_id
+      calcCurrency = string.sub( symbol, -3, -1)
+      currAmount = currQuant
+      isinString = queryStockMasterdata(cryptId, "isin", fiatEarnData)
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", fiatEarnData)
+      currQuant = nil
     else
       symbol = transaction.attributes.cryptocoin_symbol
       currPrice = tonumber(queryPrice(symbol, currency))
@@ -408,33 +434,65 @@ function transactionForCryptTransaction(transaction, currency, type)
       end
     end
 
-    t = {
-      --String name: Bezeichnung des Wertpapiers
-      name = wpName,
-      --String isin: ISIN
-      isin = isinString,
-      --String securityNumber: WKN
-      securityNumber = symbol,
-      --String market: Börse
-      market = "bitpanda",
-      --String currency: Währung bei Nominalbetrag oder nil bei Stückzahl
-      currency = calcCurrency,
-      --Number quantity: Nominalbetrag oder Stückzahl
-      quantity = currQuant,
-      --Number amount: Wert der Depotposition in Kontowährung
-      amount = currAmount,
-      --Number originalCurrencyAmount: Wert der Depotposition in Originalwährung
-      --String currencyOfOriginalAmount: Originalwährung
-      --Number exchangeRate: Wechselkurs zum Kaufzeitpunkt
-      --Number tradeTimestamp: Notierungszeitpunkt; Die Angabe erfolgt in Form eines POSIX-Zeitstempels.
-      tradeTimestamp = os.time(),
-      --Number price: Aktueller Preis oder Kurs
-      price = currPrice,
-      --String currencyOfPrice: Von der Kontowährung abweichende Währung des Preises
-      --Number purchasePrice: Kaufpreis oder Kaufkurs
-      purchasePrice = calcPurchPrice
-      --String currencyOfPurchasePrice: Von der Kontowährung abweichende Währung des Kaufpreises
-    }
+    if type == "security.fiat_earn" then
+      t = {
+        --String name: Bezeichnung des Wertpapiers
+        name = wpName,
+        --String isin: ISIN
+        isin = isinString,
+        --String securityNumber: WKN
+        securityNumber = symbol,
+        --String market: Börse
+        market = "bitpanda",
+        --String currency: Währung bei Nominalbetrag oder nil bei Stückzahl
+        currency = calcCurrency,
+        --Number quantity: Nominalbetrag oder Stückzahl
+        quantity = currQuant,
+        --Number amount: Wert der Depotposition in Kontowährung
+        amount = currAmount,
+        --Number originalCurrencyAmount: Wert der Depotposition in Originalwährung
+        originalCurrencyAmount = currAmount,
+        --String currencyOfOriginalAmount: Originalwährung
+        currencyOfOriginalAmount = calcCurrency,
+        --Number exchangeRate: Wechselkurs zum Kaufzeitpunkt
+        --Number tradeTimestamp: Notierungszeitpunkt; Die Angabe erfolgt in Form eines POSIX-Zeitstempels.
+        tradeTimestamp = os.time(),
+        --Number price: Aktueller Preis oder Kurs
+        price = currPrice,
+        --String currencyOfPrice: Von der Kontowährung abweichende Währung des Preises
+        currencyOfPrice = calcCurrency,
+        --Number purchasePrice: Kaufpreis oder Kaufkurs
+        --String currencyOfPurchasePrice: Von der Kontowährung abweichende Währung des Kaufpreises
+      }  
+    else
+      t = {
+        --String name: Bezeichnung des Wertpapiers
+        name = wpName,
+        --String isin: ISIN
+        isin = isinString,
+        --String securityNumber: WKN
+        securityNumber = symbol,
+        --String market: Börse
+        market = "bitpanda",
+        --String currency: Währung bei Nominalbetrag oder nil bei Stückzahl
+        currency = calcCurrency,
+        --Number quantity: Nominalbetrag oder Stückzahl
+        quantity = currQuant,
+        --Number amount: Wert der Depotposition in Kontowährung
+        amount = currAmount,
+        --Number originalCurrencyAmount: Wert der Depotposition in Originalwährung
+        --String currencyOfOriginalAmount: Originalwährung
+        --Number exchangeRate: Wechselkurs zum Kaufzeitpunkt
+        --Number tradeTimestamp: Notierungszeitpunkt; Die Angabe erfolgt in Form eines POSIX-Zeitstempels.
+        tradeTimestamp = os.time(),
+        --Number price: Aktueller Preis oder Kurs
+        price = currPrice,
+        --String currencyOfPrice: Von der Kontowährung abweichende Währung des Preises
+        --Number purchasePrice: Kaufpreis oder Kaufkurs
+        purchasePrice = calcPurchPrice
+        --String currencyOfPurchasePrice: Von der Kontowährung abweichende Währung des Kaufpreises
+      }
+    end
 
     return t
 end
