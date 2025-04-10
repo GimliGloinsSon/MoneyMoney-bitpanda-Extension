@@ -385,9 +385,9 @@ function transactionForCryptTransaction(transaction, currency, type)
       calcPurchPrice = 100
     elseif type == "security.stock" then
       cryptId = transaction.attributes.cryptocoin_id
-      currPrice = tonumber(queryStockMasterdata(cryptId, "price", stockPrices))
-      isinString = queryStockMasterdata(cryptId, "isin", stockData)
-      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", stockData)
+      currPrice = tonumber(queryStockMasterdata(cryptId, "price", stockPrices, 0))
+      isinString = queryStockMasterdata(cryptId, "isin", stockData, "No ISIN")
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", stockData, "unknown Stock")
       currAmount = currPrice * currQuant
       calcCurrency = nil
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
@@ -396,9 +396,9 @@ function transactionForCryptTransaction(transaction, currency, type)
       end
     elseif type == "security.etf" then
       cryptId = transaction.attributes.cryptocoin_id
-      currPrice = tonumber(queryStockMasterdata(cryptId, "price", stockPrices))
-      isinString = queryStockMasterdata(cryptId, "isin", etfData)
-      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etfData)
+      currPrice = tonumber(queryStockMasterdata(cryptId, "price", stockPrices, 0))
+      isinString = queryStockMasterdata(cryptId, "isin", etfData, "No ISIN")
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etfData, "unknown ETF")
       currAmount = currPrice * currQuant
       calcCurrency = nil
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
@@ -407,9 +407,9 @@ function transactionForCryptTransaction(transaction, currency, type)
       end
     elseif type == "security.etc" then
       cryptId = transaction.attributes.cryptocoin_id
-      currPrice = tonumber(queryStockMasterdata(cryptId, "price", stockPrices))
-      isinString = queryStockMasterdata(cryptId, "isin", etcData)
-      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etcData)
+      currPrice = tonumber(queryStockMasterdata(cryptId, "price", stockPrices, 0))
+      isinString = queryStockMasterdata(cryptId, "isin", etcData, "No ISIN")
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etcData, "unknown ETC")
       currAmount = currPrice * currQuant
       calcCurrency = nil
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
@@ -421,8 +421,8 @@ function transactionForCryptTransaction(transaction, currency, type)
       cryptId = transaction.attributes.cryptocoin_id
       calcCurrency = string.sub( symbol, -3, -1)
       currAmount = currQuant
-      isinString = queryStockMasterdata(cryptId, "isin", fiatEarnData)
-      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", fiatEarnData)
+      isinString = queryStockMasterdata(cryptId, "isin", fiatEarnData, "No ISIN")
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", fiatEarnData, "unknown CashPlus")
       currQuant = nil
     else
       symbol = transaction.attributes.cryptocoin_symbol
@@ -535,11 +535,7 @@ function transactionForFiatTransaction(transaction, accountId, currency)
           if fiatTags.attributes.short_name == "corporate_actions.dividend" then
             name = fiatTags.attributes.name
             cryptId = transaction.attributes.corporate_action_asset_id
-            if not (stockData == nil) then
-              name = name .. ": " .. queryStockMasterdata(cryptId, "name", stockData)
-            else
-              name = name .. ": " .. "unknown interest or dividend"
-            end
+            name = name .. ": " .. queryStockMasterdata(cryptId, "name", stockData, "unknown interest or dividend")
           end
           break
         end
@@ -860,14 +856,16 @@ function has_value (tab, val)
   return false
 end
 
-function queryStockMasterdata(id, field, table)
-  for key, value in pairs(table) do
-    if value.id == id then
-      return value.attributes[field]
+function queryStockMasterdata(id, field, table, default)
+  if not (table == nil) then
+    for key, value in pairs(table) do
+      if value.id == id then
+        return value.attributes[field]
+      end
     end
   end
 
-  return 0
+  return default
 end
 
 function tablelength(T)
