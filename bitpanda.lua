@@ -164,7 +164,7 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
     numETC = tablelength(allETCWallets)
     numFiatEarn = tablelength(allETCWallets)
 
-    if (numStocks == 0) and (numETF == 0) and (numETC == 0) (numFiatEarn == 0) then
+    if (numStocks == 0) and (numETF == 0) and (numETC == 0) and (numFiatEarn == 0) then
       stockPrices = {}
     else
       stockData = connection:request("GET", urlStockData, nil, nil, nil)
