@@ -537,7 +537,11 @@ function transactionForFiatTransaction(transaction, accountId, currency)
             cryptId = transaction.attributes.corporate_action_asset_id
             name = name .. ": " .. queryStockMasterdata(cryptId, "name", stockData, "unknown interest or dividend")
           end
-          break
+          if fiatTags.attributes.short_name == "cashplus.mmf.reward" then
+            name = fiatTags.attributes.name
+            cryptId = transaction.attributes.corporate_action_asset_id
+            name = name .. ": " .. queryStockMasterdata(cryptId, "name", fiatEarnData, "unknown interest or dividend")
+          end
         end
       end
     end
