@@ -74,6 +74,9 @@ Usage
 Version history
 ---------------
 
+* 1.4:
+    * bugfix issues with Bitpanda CashPlus
+
 * 1.31:
     * bugfix calculate index transactions
 
