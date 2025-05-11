@@ -311,8 +311,9 @@ function RefreshAccount (account, since)
         return
       end
       for index, cryptTransaction in pairs(getTrans) do
-        --if tonumber(cryptTransaction.attributes.balance) >= 0 then
-        if tonumber(cryptTransaction.attributes.balance) > 0 then
+        if tonumber(cryptTransaction.attributes.balance) >= 0 then
+        --Wenn Accounts mit einem Kontostand = 0 nicht angezeigt werden sollen, dann > 0
+        --if tonumber(cryptTransaction.attributes.balance) > 0 then
           local transaction = transactionForCryptTransaction(cryptTransaction, account.currency, account.subAccount)
           t[#t + 1] = transaction
         end
