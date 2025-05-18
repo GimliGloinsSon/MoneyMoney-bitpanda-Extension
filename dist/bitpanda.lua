@@ -26,7 +26,7 @@
 -- SOFTWARE.
 
 
-WebBanking{version     = 1.31,
+WebBanking{version     = 1.4,
            url         = "https://api.bitpanda.com/v1/",
            services    = {"bitpanda"},
            description = "Loads FIATs, Krypto, Indizes, Stocks, ETCs (Ressources) and Commodities from bitpanda"}
@@ -124,6 +124,7 @@ local allCryptoWallets = {}
 local allStockWallets = {}
 local allETFWallets = {}
 local allETCWallets = {}
+local allFiatEarnWallets = {}
 local allCommWallets = {}
 local allWallets = {}
 
@@ -155,13 +156,15 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
     allStockWallets = allAssetWallets.data.attributes.security.stock.attributes.wallets
     allETFWallets = allAssetWallets.data.attributes.security.etf.attributes.wallets
     allETCWallets = allAssetWallets.data.attributes.security.etc.attributes.wallets
+    allFiatEarnWallets = allAssetWallets.data.attributes.security.fiat_earn.attributes.wallets
     allCommWallets = allAssetWallets.data.attributes.commodity.metal.attributes.wallets
 
     numStocks = tablelength(allStockWallets)
     numETF = tablelength(allETFWallets)
     numETC = tablelength(allETCWallets)
+    numFiatEarn = tablelength(allETCWallets)
 
-    if (numStocks == 0) and (numETF == 0) and (numETC == 0) then
+    if (numStocks == 0) and (numETF == 0) and (numETC == 0) and (numFiatEarn == 0) then
       stockPrices = {}
     else
       stockData = connection:request("GET", urlStockData, nil, nil, nil)
@@ -172,6 +175,7 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
       stockData = stockDataTable.data.attributes.stocks
       etfData = stockDataTable.data.attributes.etfs
       etcData = stockDataTable.data.attributes.etcs
+      fiatEarnData = stockDataTable.data.attributes.fiat_earns
     end
 
   end
@@ -254,17 +258,29 @@ function ListAccounts (knownAccounts)
       subAccount = "security.etf"
     })
 
-     -- ETC Wallets (Ressources)
-     table.insert(accounts,
-     {
-       name = "Ressource Wallets",
-       owner = user,
-       accountNumber = "Ressource Accounts",
-       currency = walletCurrency,
-       portfolio = true,
-       type = AccountTypePortfolio,
-       subAccount = "security.etc"
-     })
+    -- ETC Wallets (Ressources)
+    table.insert(accounts,
+    {
+      name = "Ressource Wallets",
+      owner = user,
+      accountNumber = "Ressource Accounts",
+      currency = walletCurrency,
+      portfolio = true,
+      type = AccountTypePortfolio,
+      subAccount = "security.etc"
+    })
+
+    -- Fiat Earn Wallets (Cash Plus)
+    table.insert(accounts,
+    {
+      name = "Cash Plus Wallets",
+      owner = user,
+      accountNumber = "Cash Plus Accounts",
+      currency = walletCurrency,
+      portfolio = true,
+      type = AccountTypePortfolio,
+      subAccount = "security.fiat_earn"
+    })
 
       return accounts
 end
@@ -289,11 +305,15 @@ function RefreshAccount (account, since)
         getTrans = allAssetWallets.data.attributes.security.etf.attributes.wallets
       elseif account.subAccount == "security.etc" then
         getTrans = allAssetWallets.data.attributes.security.etc.attributes.wallets
+      elseif account.subAccount == "security.fiat_earn" then
+        getTrans = allAssetWallets.data.attributes.security.fiat_earn.attributes.wallets
       else
         return
       end
       for index, cryptTransaction in pairs(getTrans) do
         if tonumber(cryptTransaction.attributes.balance) >= 0 then
+        --Wenn Accounts mit einem Kontostand = 0 nicht angezeigt werden sollen, dann > 0
+        --if tonumber(cryptTransaction.attributes.balance) > 0 then
           local transaction = transactionForCryptTransaction(cryptTransaction, account.currency, account.subAccount)
           t[#t + 1] = transaction
         end
@@ -366,9 +386,9 @@ function transactionForCryptTransaction(transaction, currency, type)
       calcPurchPrice = 100
     elseif type == "security.stock" then
       cryptId = transaction.attributes.cryptocoin_id
-      currPrice = tonumber(queryStockMasterdata(cryptId, "price", stockPrices))
-      isinString = queryStockMasterdata(cryptId, "isin", stockData)
-      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", stockData)
+      currPrice = tonumber(queryStockMasterdata(cryptId, "price", stockPrices, 0))
+      isinString = queryStockMasterdata(cryptId, "isin", stockData, "No ISIN")
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", stockData, "unknown Stock")
       currAmount = currPrice * currQuant
       calcCurrency = nil
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
@@ -377,9 +397,9 @@ function transactionForCryptTransaction(transaction, currency, type)
       end
     elseif type == "security.etf" then
       cryptId = transaction.attributes.cryptocoin_id
-      currPrice = tonumber(queryStockMasterdata(cryptId, "price", stockPrices))
-      isinString = queryStockMasterdata(cryptId, "isin", etfData)
-      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etfData)
+      currPrice = tonumber(queryStockMasterdata(cryptId, "price", stockPrices, 0))
+      isinString = queryStockMasterdata(cryptId, "isin", etfData, "No ISIN")
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etfData, "unknown ETF")
       currAmount = currPrice * currQuant
       calcCurrency = nil
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
@@ -388,15 +408,23 @@ function transactionForCryptTransaction(transaction, currency, type)
       end
     elseif type == "security.etc" then
       cryptId = transaction.attributes.cryptocoin_id
-      currPrice = tonumber(queryStockMasterdata(cryptId, "price", stockPrices))
-      isinString = queryStockMasterdata(cryptId, "isin", etcData)
-      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etcData)
+      currPrice = tonumber(queryStockMasterdata(cryptId, "price", stockPrices, 0))
+      isinString = queryStockMasterdata(cryptId, "isin", etcData, "No ISIN")
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", etcData, "unknown ETC")
       currAmount = currPrice * currQuant
       calcCurrency = nil
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
       if calcPurchPrice == 0 then
         calcPurchPrice = 0.0000000000001
       end
+    elseif type == "security.fiat_earn" then
+      symbol = transaction.attributes.cryptocoin_symbol
+      cryptId = transaction.attributes.cryptocoin_id
+      calcCurrency = string.sub( symbol, -3, -1)
+      currAmount = currQuant
+      isinString = queryStockMasterdata(cryptId, "isin", fiatEarnData, "No ISIN")
+      wpName = wpName .. " - " .. queryStockMasterdata(cryptId, "name", fiatEarnData, "unknown CashPlus")
+      currQuant = nil
     else
       symbol = transaction.attributes.cryptocoin_symbol
       currPrice = tonumber(queryPrice(symbol, currency))
@@ -407,33 +435,65 @@ function transactionForCryptTransaction(transaction, currency, type)
       end
     end
 
-    t = {
-      --String name: Bezeichnung des Wertpapiers
-      name = wpName,
-      --String isin: ISIN
-      isin = isinString,
-      --String securityNumber: WKN
-      securityNumber = symbol,
-      --String market: Börse
-      market = "bitpanda",
-      --String currency: Währung bei Nominalbetrag oder nil bei Stückzahl
-      currency = calcCurrency,
-      --Number quantity: Nominalbetrag oder Stückzahl
-      quantity = currQuant,
-      --Number amount: Wert der Depotposition in Kontowährung
-      amount = currAmount,
-      --Number originalCurrencyAmount: Wert der Depotposition in Originalwährung
-      --String currencyOfOriginalAmount: Originalwährung
-      --Number exchangeRate: Wechselkurs zum Kaufzeitpunkt
-      --Number tradeTimestamp: Notierungszeitpunkt; Die Angabe erfolgt in Form eines POSIX-Zeitstempels.
-      tradeTimestamp = os.time(),
-      --Number price: Aktueller Preis oder Kurs
-      price = currPrice,
-      --String currencyOfPrice: Von der Kontowährung abweichende Währung des Preises
-      --Number purchasePrice: Kaufpreis oder Kaufkurs
-      purchasePrice = calcPurchPrice
-      --String currencyOfPurchasePrice: Von der Kontowährung abweichende Währung des Kaufpreises
-    }
+    if type == "security.fiat_earn" then
+      t = {
+        --String name: Bezeichnung des Wertpapiers
+        name = wpName,
+        --String isin: ISIN
+        isin = isinString,
+        --String securityNumber: WKN
+        securityNumber = symbol,
+        --String market: Börse
+        market = "bitpanda",
+        --String currency: Währung bei Nominalbetrag oder nil bei Stückzahl
+        currency = calcCurrency,
+        --Number quantity: Nominalbetrag oder Stückzahl
+        quantity = currQuant,
+        --Number amount: Wert der Depotposition in Kontowährung
+        amount = currAmount,
+        --Number originalCurrencyAmount: Wert der Depotposition in Originalwährung
+        originalCurrencyAmount = currAmount,
+        --String currencyOfOriginalAmount: Originalwährung
+        currencyOfOriginalAmount = calcCurrency,
+        --Number exchangeRate: Wechselkurs zum Kaufzeitpunkt
+        --Number tradeTimestamp: Notierungszeitpunkt; Die Angabe erfolgt in Form eines POSIX-Zeitstempels.
+        tradeTimestamp = os.time(),
+        --Number price: Aktueller Preis oder Kurs
+        price = currPrice,
+        --String currencyOfPrice: Von der Kontowährung abweichende Währung des Preises
+        currencyOfPrice = calcCurrency,
+        --Number purchasePrice: Kaufpreis oder Kaufkurs
+        --String currencyOfPurchasePrice: Von der Kontowährung abweichende Währung des Kaufpreises
+      }
+    else
+      t = {
+        --String name: Bezeichnung des Wertpapiers
+        name = wpName,
+        --String isin: ISIN
+        isin = isinString,
+        --String securityNumber: WKN
+        securityNumber = symbol,
+        --String market: Börse
+        market = "bitpanda",
+        --String currency: Währung bei Nominalbetrag oder nil bei Stückzahl
+        currency = calcCurrency,
+        --Number quantity: Nominalbetrag oder Stückzahl
+        quantity = currQuant,
+        --Number amount: Wert der Depotposition in Kontowährung
+        amount = currAmount,
+        --Number originalCurrencyAmount: Wert der Depotposition in Originalwährung
+        --String currencyOfOriginalAmount: Originalwährung
+        --Number exchangeRate: Wechselkurs zum Kaufzeitpunkt
+        --Number tradeTimestamp: Notierungszeitpunkt; Die Angabe erfolgt in Form eines POSIX-Zeitstempels.
+        tradeTimestamp = os.time(),
+        --Number price: Aktueller Preis oder Kurs
+        price = currPrice,
+        --String currencyOfPrice: Von der Kontowährung abweichende Währung des Preises
+        --Number purchasePrice: Kaufpreis oder Kaufkurs
+        purchasePrice = calcPurchPrice
+        --String currencyOfPurchasePrice: Von der Kontowährung abweichende Währung des Kaufpreises
+      }
+    end
 
     return t
 end
@@ -443,6 +503,7 @@ function transactionForFiatTransaction(transaction, accountId, currency)
     local accountNumber = "unknown IBAN"
     local bankCode = "unknown BIC"
     local cryptId = 0
+    local cryptSym = "unknown Crypto"
     local asset = "unknown Asset"
     local purposeStr = ""
 
@@ -459,11 +520,12 @@ function transactionForFiatTransaction(transaction, accountId, currency)
 
     if not (transaction.attributes.trade == nil) then
       cryptId = tonumber(transaction.attributes.trade.attributes.cryptocoin_id)
+      cryptSym = transaction.attributes.trade.attributes.cryptocoin_symbol
       asset = coinDict[cryptId]
       if not (asset == nil) then
         name = transaction.attributes.trade.attributes.type .. ": " .. coinDict[cryptId]
       else
-        name = transaction.attributes.trade.attributes.type .. ": " .. getWalletName(cryptId)
+        name = transaction.attributes.trade.attributes.type .. ": " .. getWalletName(cryptId, cryptSym)
       end
     end
 
@@ -474,9 +536,13 @@ function transactionForFiatTransaction(transaction, accountId, currency)
           if fiatTags.attributes.short_name == "corporate_actions.dividend" then
             name = fiatTags.attributes.name
             cryptId = transaction.attributes.corporate_action_asset_id
-            name = name .. ": " .. queryStockMasterdata(cryptId, "name", stockData)
+            name = name .. ": " .. queryStockMasterdata(cryptId, "name", stockData, "unknown interest or dividend")
           end
-          break
+          if fiatTags.attributes.short_name == "cashplus.mmf.reward" then
+            name = fiatTags.attributes.name
+            cryptId = transaction.attributes.corporate_action_asset_id
+            name = name .. ": " .. queryStockMasterdata(cryptId, "name", fiatEarnData, "unknown interest or dividend")
+          end
         end
       end
     end
@@ -539,7 +605,7 @@ end
 function getIndexBuys(currency, currIndex, currCryptId, accountId, type)
   currIndexName = coinDict[tonumber(currCryptId)]
   if currIndexName == nil then
-    currIndexName = getWalletName(currCryptId)
+    currIndexName = getWalletName(currCryptId, "unknown Index")
   end
   local firstTrans = true
   local currDate = nil
@@ -602,7 +668,7 @@ function EndSession ()
     -- Logout.
 end
 
-function getWalletName(cryptId)
+function getWalletName(cryptId, default)
   for index, wallets in pairs(getIndWallets) do
     if tonumber(cryptId) == tonumber(wallets.attributes.cryptocoin_id) then
       return wallets.attributes.name
@@ -639,7 +705,7 @@ function getWalletName(cryptId)
     end
   end
 
-  return "Unknown Asset"
+  return default
 end
 
 function queryPurchPrice(accountId, type, cryptWalletId)
@@ -795,14 +861,16 @@ function has_value (tab, val)
   return false
 end
 
-function queryStockMasterdata(id, field, table)
-  for key, value in pairs(table) do
-    if value.id == id then
-      return value.attributes[field]
+function queryStockMasterdata(id, field, table, default)
+  if not (table == nil) then
+    for key, value in pairs(table) do
+      if value.id == id then
+        return value.attributes[field]
+      end
     end
   end
 
-  return 0
+  return default
 end
 
 function tablelength(T)
@@ -811,4 +879,4 @@ function tablelength(T)
   return count
 end
 
--- SIGNATURE: MCwCFBoAIow3RcwQj3+fx61EBVcg8JHIAhQucSSqxHAlOROsoyDXsbQigaQbXQ==
+-- SIGNATURE: MC4CFQCUIJr4/8vsUceMhWdq+0PijXTxMAIVAIvgO0Ux3BnaJv6A9h7EJkgn3J7h
