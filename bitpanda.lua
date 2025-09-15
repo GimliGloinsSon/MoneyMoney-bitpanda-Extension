@@ -26,7 +26,7 @@
 -- SOFTWARE.
 
 
-WebBanking{version     = 1.4,
+WebBanking{version     = 1.5,
            url         = "https://api.bitpanda.com/v1/",
            services    = {"bitpanda"},
            description = "Loads FIATs, Krypto, Indizes, Stocks, ETCs (Ressources) and Commodities from bitpanda"}
@@ -310,10 +310,19 @@ function RefreshAccount (account, since)
       else
         return
       end
+
       for index, cryptTransaction in pairs(getTrans) do
-        if tonumber(cryptTransaction.attributes.balance) >= 0 then
+        --check for staked cryptcoins
+        local stakedAmount = 0
+        print ("SubAccount: " .. account.subAccount)
+        print ("Krypto: " .. cryptTransaction.attributes.name .. "Staked Amount: " .. stakedAmount)
+        if account.subAccount == "cryptocoin" then
+          stakedAmount = getStakedAount(cryptTransaction.attributes.cryptocoin_id)
+          print ("Krypto: " .. cryptTransaction.attributes.name .. "Staked Amount: " .. stakedAmount)
+        end
+        --if tonumber(cryptTransaction.attributes.balance) >= 0 then
         --Wenn Accounts mit einem Kontostand = 0 nicht angezeigt werden sollen, dann > 0
-        --if tonumber(cryptTransaction.attributes.balance) > 0 then
+        if tonumber(cryptTransaction.attributes.balance) > 0 or tonumber(stakedAmount) > 0 then
           local transaction = transactionForCryptTransaction(cryptTransaction, account.currency, account.subAccount)
           t[#t + 1] = transaction
         end
@@ -427,6 +436,7 @@ function transactionForCryptTransaction(transaction, currency, type)
       currQuant = nil
     else
       symbol = transaction.attributes.cryptocoin_symbol
+      print ("Symbol: " .. symbol)
       currPrice = tonumber(queryPrice(symbol, currency))
       currAmount = currPrice * currQuant
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
@@ -662,6 +672,23 @@ function getIndexBuys(currency, currIndex, currCryptId, accountId, type)
     t[#t + 1] = trans
   end
   return t
+end
+
+function getStakedAount(cryptocoinId)
+  local stakedAmount = 0
+  
+  for index, trans in pairs(allWalletTrans) do
+    -- Rewards
+    if trans.attributes.tags ~= nil and #trans.attributes.tags > 0 and trans.attributes.cryptocoin_id == cryptocoinId then
+      if trans.attributes.tags[1].attributes.name == "Unstake" then
+        stakedAmount = stakedAmount - trans.attributes.amount
+      elseif trans.attributes.tags[1].attributes.name == "Stake" then
+        stakedAmount = stakedAmount + trans.attributes.amount
+      end
+    end
+  end
+
+  return stakedAmount
 end
 
 function EndSession ()
