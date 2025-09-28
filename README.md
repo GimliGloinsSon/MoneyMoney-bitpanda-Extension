@@ -74,6 +74,11 @@ Usage
 Version history
 ---------------
 
+* 1.5:
+    * possibility to show staked Crypto
+        * ATTENTION!!! the amount of staked cryptos contains only the amount you have staked
+        * at the moment the API from bitpanda has no possibility to get the amount of the rewards
+
 * 1.4:
     * bugfix issues with Bitpanda CashPlus
 

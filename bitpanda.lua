@@ -322,8 +322,12 @@ function RefreshAccount (account, since)
         end
         --if tonumber(cryptTransaction.attributes.balance) >= 0 then
         --Wenn Accounts mit einem Kontostand = 0 nicht angezeigt werden sollen, dann > 0
-        if tonumber(cryptTransaction.attributes.balance) > 0 or tonumber(stakedAmount) > 0 then
-          local transaction = transactionForCryptTransaction(cryptTransaction, account.currency, account.subAccount)
+        if tonumber(cryptTransaction.attributes.balance) > 0 then
+          local transaction = transactionForCryptTransaction(cryptTransaction, account.currency, account.subAccount, false, 0)
+          t[#t + 1] = transaction
+        end
+        if tonumber(stakedAmount) > 0 then
+          local transaction = transactionForCryptTransaction(cryptTransaction, account.currency, account.subAccount, true,  tonumber(stakedAmount))
           t[#t + 1] = transaction
         end
       end
@@ -371,7 +375,7 @@ function RefreshAccount (account, since)
 
 end
 
-function transactionForCryptTransaction(transaction, currency, type)
+function transactionForCryptTransaction(transaction, currency, type, staked, stakedAmount)
     --local symbol = transaction.attributes.cryptocoin_symbol
     local symbol = nil
     local currPrice = 0
@@ -381,7 +385,7 @@ function transactionForCryptTransaction(transaction, currency, type)
     local wpName = transaction.attributes.name
     local calcPurchPrice = 0
     local calcCurrency = nil
-
+    
     -- Calculation for Indizes
     if type == "index.index" then
       symbol = transaction.attributes.cryptocoin_symbol
@@ -438,6 +442,11 @@ function transactionForCryptTransaction(transaction, currency, type)
       symbol = transaction.attributes.cryptocoin_symbol
       print ("Symbol: " .. symbol)
       currPrice = tonumber(queryPrice(symbol, currency))
+      if staked then
+        print ("Staked: ")
+        currQuant = currQuant + stakedAmount
+        wpName = wpName .. " !!!Staked!!! Amount did not contains staking rewards"
+      end
       currAmount = currPrice * currQuant
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
       if calcPurchPrice == 0 then
