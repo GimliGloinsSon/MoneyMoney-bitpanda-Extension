@@ -444,7 +444,8 @@ function transactionForCryptTransaction(transaction, currency, type, staked, sta
       currPrice = tonumber(queryPrice(symbol, currency))
       if staked then
         print ("Staked: ")
-        currQuant = currQuant + stakedAmount
+        --currQuant = currQuant + stakedAmount
+        currQuant = stakedAmount
         wpName = wpName .. " !!!Staked!!! Amount did not contains staking rewards"
       end
       currAmount = currPrice * currQuant
@@ -690,9 +691,13 @@ function getStakedAount(cryptocoinId)
     -- Rewards
     if trans.attributes.tags ~= nil and #trans.attributes.tags > 0 and trans.attributes.cryptocoin_id == cryptocoinId then
       if trans.attributes.tags[1].attributes.name == "Unstake" then
+        print(stakedAmount .. " =- " .. trans.attributes.amount)
         stakedAmount = stakedAmount - trans.attributes.amount
+        print("New staked amount: " .. stakedAmount .. " after - Unstake")
       elseif trans.attributes.tags[1].attributes.name == "Stake" then
+        print(stakedAmount .. " =+ " .. trans.attributes.amount)
         stakedAmount = stakedAmount + trans.attributes.amount
+        print("New staked amount: " .. stakedAmount .. " after + Stake")
       end
     end
   end
