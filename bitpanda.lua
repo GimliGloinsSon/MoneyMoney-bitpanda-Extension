@@ -326,7 +326,7 @@ function RefreshAccount (account, since)
           local transaction = transactionForCryptTransaction(cryptTransaction, account.currency, account.subAccount, false, 0)
           t[#t + 1] = transaction
         end
-        if tonumber(stakedAmount) > 0 then
+        if tonumber(stakedAmount) > 0 or tonumber(stakedAmount) < 0 then
           local transaction = transactionForCryptTransaction(cryptTransaction, account.currency, account.subAccount, true,  tonumber(stakedAmount))
           t[#t + 1] = transaction
         end
