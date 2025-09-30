@@ -59,7 +59,8 @@ With version 1.5 of the extension, also „staked“ crypto coins are shown in a
 The quantity of the coins will be calculated from the staking and unstaking transfers 
 which the API from Bitpanda delivers. Unfortunately, the API does not deliver any information 
 about rewards which are received from staking or the quantity of the crypto which is staked. 
-The value which is shown by the extension is only an approximate value. 
+The value which is shown by the extension is only an approximate value. The "staked wallet"
+will only be shown if the sum of staking(+) and unstaking(-) is bigger than 0.
 For the correct value, have a look at Bitpanda.
 
 Usage
