@@ -52,6 +52,16 @@ Information to Indizes
 If you see in your FIAT-wallet a buy and a sell of the same day of the same index,
 that means that there was a rebalancing of the index.
 
+Information for staked Cryptos
+------------------------------
+
+With version 1.5 of the extension, also „staked“ crypto coins are shown in an own wallet. 
+The quantity of the coins will be calculated from the staking and unstaking transfers 
+which the API from Bitpanda delivers. Unfortunately, the API does not deliver any information 
+about rewards which are received from staking or the quantity of the crypto which is staked. 
+The value which is shown by the extension is only an approximate value. 
+For the correct value, have a look at Bitpanda.
+
 Usage
 -----
 
@@ -75,9 +85,8 @@ Version history
 ---------------
 
 * 1.5:
-    * possibility to show staked Crypto
-        * ATTENTION!!! the amount of staked cryptos contains only the amount you have staked
-        * at the moment the API from bitpanda has no possibility to get the amount of the rewards
+    * possibility to show staked Cryptos
+        * Please read the "Information for staked Cryptos"
 
 * 1.4:
     * bugfix issues with Bitpanda CashPlus

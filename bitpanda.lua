@@ -314,11 +314,8 @@ function RefreshAccount (account, since)
       for index, cryptTransaction in pairs(getTrans) do
         --check for staked cryptcoins
         local stakedAmount = 0
-        print ("SubAccount: " .. account.subAccount)
-        print ("Krypto: " .. cryptTransaction.attributes.name .. "Staked Amount: " .. stakedAmount)
         if account.subAccount == "cryptocoin" then
           stakedAmount = getStakedAount(cryptTransaction.attributes.cryptocoin_id)
-          print ("Krypto: " .. cryptTransaction.attributes.name .. "Staked Amount: " .. stakedAmount)
         end
         --if tonumber(cryptTransaction.attributes.balance) >= 0 then
         --Wenn Accounts mit einem Kontostand = 0 nicht angezeigt werden sollen, dann > 0
@@ -326,7 +323,7 @@ function RefreshAccount (account, since)
           local transaction = transactionForCryptTransaction(cryptTransaction, account.currency, account.subAccount, false, 0)
           t[#t + 1] = transaction
         end
-        if tonumber(stakedAmount) > 0 or tonumber(stakedAmount) < 0 then
+        if tonumber(stakedAmount) > 0 then
           local transaction = transactionForCryptTransaction(cryptTransaction, account.currency, account.subAccount, true,  tonumber(stakedAmount))
           t[#t + 1] = transaction
         end
@@ -440,13 +437,11 @@ function transactionForCryptTransaction(transaction, currency, type, staked, sta
       currQuant = nil
     else
       symbol = transaction.attributes.cryptocoin_symbol
-      print ("Symbol: " .. symbol)
       currPrice = tonumber(queryPrice(symbol, currency))
       if staked then
-        print ("Staked: ")
         --currQuant = currQuant + stakedAmount
         currQuant = stakedAmount
-        wpName = wpName .. " !!!Staked!!! Amount did not contains staking rewards"
+        wpName = wpName .. " !!!Staked!!! Quantity did not contains staking rewards"
       end
       currAmount = currPrice * currQuant
       calcPurchPrice = queryPurchPrice(transaction.attributes.cryptocoin_id, "crypt", transaction.id)
